@@ -21,6 +21,7 @@ GTO.Engine.HandPlaythrough = {
       deck: deck,
       format: config.format || 'cash',
       stackDepth: config.stackDepth || '100bb',
+      effectiveStack: 100, // in bb
       streets: [],
       currentStreet: 'preflop',
       board: [],
@@ -38,7 +39,6 @@ GTO.Engine.HandPlaythrough = {
     var h = this._hand;
 
     if (h.currentStreet === 'preflop') {
-      // Already dealt hole cards
       return { street: 'preflop', board: [] };
     } else if (h.currentStreet === 'flop') {
       var flop = GTO.Engine.Deck.deal(h.deck, 3);
@@ -63,13 +63,15 @@ GTO.Engine.HandPlaythrough = {
     var result;
     if (h.currentStreet === 'preflop') {
       var gtoFreqs = GTO.Data.lookupPreflop(h.format, h.stackDepth, 'rfi', h.heroPosition, h.hand);
-      result = GTO.Engine.Scoring.scorePreflop(gtoFreqs, userAction);
+      result = GTO.Engine.Scoring.scorePreflop(gtoFreqs, userAction, { potSize: 2.5 });
     } else {
-      var spotType = this._getSpotType(h.currentStreet);
+      var isIP = this._isHeroIP(h.heroPosition);
+      var spotType = this._getSpotType(h.currentStreet, isIP);
       var texture = GTO.Data.BoardCategories.classify(h.board);
       var strength = GTO.Engine.HandEvaluator.classify(h.cards, h.board);
-      var gtoFreqs = GTO.Data.lookupPostflop(spotType, texture, strength);
-      result = GTO.Engine.Scoring.scorePostflop(gtoFreqs, userAction);
+      var spr = h.effectiveStack / h.pot;
+      var gtoFreqs = GTO.Data.lookupPostflop(spotType, texture, strength, spr);
+      result = GTO.Engine.Scoring.scorePostflop(gtoFreqs, userAction, { potSize: h.pot });
     }
 
     h.scores.push({ street: h.currentStreet, result: result, action: userAction });
@@ -93,10 +95,17 @@ GTO.Engine.HandPlaythrough = {
     return result;
   },
 
-  _getSpotType: function(street) {
-    if (street === 'flop') return 'IP_cbet_flop';
-    if (street === 'turn') return 'IP_turn_barrel';
-    return 'IP_river_bet';
+  _isHeroIP: function(position) {
+    // In 6-max: BTN, CO are typically IP postflop; UTG, MP, SB, BB are OOP
+    // Simplified: BTN and CO are IP
+    return position === 'BTN' || position === 'CO';
+  },
+
+  _getSpotType: function(street, isIP) {
+    var prefix = isIP ? 'IP_' : 'OOP_';
+    if (street === 'flop') return prefix + 'cbet_flop';
+    if (street === 'turn') return prefix + 'turn_barrel';
+    return prefix + 'river_bet';
   },
 
   getHand: function() { return this._hand; },

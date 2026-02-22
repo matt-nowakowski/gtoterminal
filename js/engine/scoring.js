@@ -5,12 +5,13 @@ GTO.Engine.Scoring = {
   // Score a preflop decision
   // gtoFreqs: { fold: 0.5, call: 0.3, raise: 0.2 }
   // userAction: 'fold' | 'call' | 'raise'
-  scorePreflop: function(gtoFreqs, userAction) {
+  // context: { potSize } (optional, defaults to 2.5bb for open raise)
+  scorePreflop: function(gtoFreqs, userAction, context) {
     if (!gtoFreqs) {
-      // No data for this spot — treat as fold-default, don't penalize
       gtoFreqs = { fold: 0.5, call: 0.25, raise: 0.25 };
     }
 
+    var potSize = (context && context.potSize) || 2.5;
     var userFreq = gtoFreqs[userAction] || 0;
 
     // Find the highest frequency action
@@ -24,20 +25,23 @@ GTO.Engine.Scoring = {
     var isOptimal = userAction === bestAction;
     var isPure = bestFreq >= 0.95;
 
-    // EV loss estimation (simplified)
-    // Pure action missed = larger EV loss
-    // Mixed spot = smaller EV loss for any reasonable action
+    // Pot-relative EV loss in bb
+    // Formula: -potSize * (bestFreq - userFreq) * scaleFactor
+    // scaleFactor increases penalty for larger frequency gaps
     var evLoss = 0;
     if (!isOptimal) {
+      var freqGap = bestFreq - userFreq;
+      var scaleFactor;
       if (userFreq >= 0.3) {
-        evLoss = -0.05; // Acceptable play in a mixed spot
+        scaleFactor = 0.15; // Acceptable mixed-spot play
       } else if (userFreq >= 0.1) {
-        evLoss = -0.15; // Suboptimal but not terrible
+        scaleFactor = 0.35; // Suboptimal
       } else if (userFreq > 0) {
-        evLoss = -0.3; // Bad play, low frequency
+        scaleFactor = 0.55; // Bad play, low frequency
       } else {
-        evLoss = isPure ? -0.8 : -0.5; // Not in the strategy at all
+        scaleFactor = isPure ? 0.85 : 0.65; // Not in the strategy at all
       }
+      evLoss = -(potSize * freqGap * scaleFactor);
     }
 
     // Verdict
@@ -61,11 +65,13 @@ GTO.Engine.Scoring = {
   },
 
   // Score a postflop decision
-  scorePostflop: function(gtoFreqs, userAction) {
+  // context: { potSize } (optional, defaults to 6.5bb)
+  scorePostflop: function(gtoFreqs, userAction, context) {
     if (!gtoFreqs) {
       gtoFreqs = { check: 0.5, bet_33: 0.2, bet_67: 0.2, bet_100: 0.1 };
     }
 
+    var potSize = (context && context.potSize) || 6.5;
     var userFreq = gtoFreqs[userAction] || 0;
     var actions = Object.keys(gtoFreqs);
     var bestAction = actions[0];
@@ -75,12 +81,22 @@ GTO.Engine.Scoring = {
     });
 
     var isOptimal = userAction === bestAction;
+
+    // Pot-relative EV loss in bb
     var evLoss = 0;
     if (!isOptimal) {
-      if (userFreq >= 0.25) evLoss = -0.1;
-      else if (userFreq >= 0.1) evLoss = -0.25;
-      else if (userFreq > 0) evLoss = -0.4;
-      else evLoss = -0.7;
+      var freqGap = bestFreq - userFreq;
+      var scaleFactor;
+      if (userFreq >= 0.25) {
+        scaleFactor = 0.15;
+      } else if (userFreq >= 0.1) {
+        scaleFactor = 0.35;
+      } else if (userFreq > 0) {
+        scaleFactor = 0.50;
+      } else {
+        scaleFactor = 0.70;
+      }
+      evLoss = -(potSize * freqGap * scaleFactor);
     }
 
     var verdict;
@@ -98,11 +114,21 @@ GTO.Engine.Scoring = {
   },
 
   // Score push/fold decision
-  scorePushFold: function(shouldPush, userAction) {
+  // context: { stackBB } (optional, scales EV loss by stack size)
+  scorePushFold: function(shouldPush, userAction, context) {
     var correct = (shouldPush && userAction === 'push') || (!shouldPush && userAction === 'fold');
+    var stackBB = (context && context.stackBB) || 10;
+
+    // EV loss scales with stack — wrong shove at 20bb is worse than at 5bb
+    // But also, marginal spots at low stacks are less costly
+    var evLoss = 0;
+    if (!correct) {
+      evLoss = -(0.5 * stackBB / 10); // ~0.5bb at 10bb, ~1.0bb at 20bb, ~0.25bb at 5bb
+    }
+
     return {
       verdict: correct ? 'optimal' : 'mistake',
-      evLoss: correct ? 0 : -0.5,
+      evLoss: evLoss,
       isOptimal: correct,
       userAction: userAction,
       correctAction: shouldPush ? 'push' : 'fold'

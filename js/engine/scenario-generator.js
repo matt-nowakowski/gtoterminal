@@ -86,6 +86,8 @@ GTO.Engine.ScenarioGenerator = {
 
     var position = isIP ? GTO.Utils.randPick(['BTN','CO']) : GTO.Utils.randPick(['BB','SB','UTG']);
 
+    var spr = effectiveStack / potSize;
+
     return {
       type: 'postflop',
       format: format,
@@ -100,6 +102,7 @@ GTO.Engine.ScenarioGenerator = {
       isIP: isIP,
       potSize: potSize,
       effectiveStack: effectiveStack,
+      spr: spr,
       description: this._describePostflopScenario(spotType, texture, street, position, potSize, effectiveStack)
     };
   },

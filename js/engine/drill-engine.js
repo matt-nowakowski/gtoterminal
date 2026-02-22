@@ -67,13 +67,14 @@ GTO.Engine.DrillEngine = {
         scenario.actionContext, scenario.positionKey || scenario.position,
         scenario.hand
       );
-      result = GTO.Engine.Scoring.scorePreflop(gtoFreqs, userAction);
+      result = GTO.Engine.Scoring.scorePreflop(gtoFreqs, userAction, { potSize: 2.5 });
     } else if (scenario.type === 'postflop') {
-      var gtoFreqs = GTO.Data.lookupPostflop(scenario.spotType, scenario.boardTexture, scenario.handStrength);
-      result = GTO.Engine.Scoring.scorePostflop(gtoFreqs, userAction);
+      var spr = scenario.effectiveStack && scenario.potSize ? scenario.effectiveStack / scenario.potSize : null;
+      var gtoFreqs = GTO.Data.lookupPostflop(scenario.spotType, scenario.boardTexture, scenario.handStrength, spr);
+      result = GTO.Engine.Scoring.scorePostflop(gtoFreqs, userAction, { potSize: scenario.potSize || 6.5 });
     } else if (scenario.type === 'tournament') {
       var lookup = GTO.Data.lookupPushFold(6, scenario.position, scenario.stackBB, scenario.hand);
-      result = GTO.Engine.Scoring.scorePushFold(lookup.inRange, userAction);
+      result = GTO.Engine.Scoring.scorePushFold(lookup.inRange, userAction, { stackBB: scenario.stackBB });
     }
 
     // Record decision
