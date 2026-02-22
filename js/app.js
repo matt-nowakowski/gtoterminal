@@ -4,6 +4,7 @@ GTO.App = {
   init: function() {
     // Initialize core systems
     GTO.State.init();
+    GTO.Env.load(); // Load .env file (async, applies API key if present)
     GTO.Keyboard.init();
 
     // Initialize UI
