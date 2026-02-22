@@ -7,6 +7,11 @@ GTO.Analytics.Dashboard = {
     this.renderWeaknesses();
     this.renderSessionHistory();
     this.renderTrendChart();
+
+    // Render player profile
+    if (GTO.Content && GTO.Content.ProfileView) {
+      GTO.Content.ProfileView.render();
+    }
   },
 
   renderPositionChart: function() {

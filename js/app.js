@@ -23,6 +23,7 @@ GTO.App = {
     this._setupSessionSummary();
     this._setupPlaythrough();
     this._setupPlans();
+    this._setupLearn();
 
     // Global keyboard shortcuts
     GTO.Keyboard.register('global', '?', function() { GTO.UI.Modal.open('modal-help'); });
@@ -504,6 +505,43 @@ GTO.App = {
     GTO.UI.HUD.updateStat('postflop-pot', scenario.potSize + 'bb');
     GTO.UI.HUD.updateStat('postflop-stack', scenario.effectiveStack + 'bb');
     GTO.UI.HUD.updateStat('postflop-street', GTO.Data.PostflopSpotLabels ? GTO.Data.PostflopSpotLabels[scenario.spotType] : scenario.spotType);
+
+    // Populate middle column: board display + texture analysis
+    GTO.UI.BoardDisplay.renderBoard('board-display-cards', scenario.boardCards);
+
+    var tex = scenario.boardTexture;
+    var texLabel = GTO.Data.BoardTextureLabels ? GTO.Data.BoardTextureLabels[tex] : tex;
+    GTO.UI.HUD.updateStat('texture-type', texLabel);
+
+    var isWet = tex.indexOf('wet') >= 0 || tex === 'highly_connected';
+    var isMonotone = tex === 'monotone';
+    var isTwotone = tex.indexOf('twotone') >= 0;
+
+    GTO.UI.HUD.updateStat('texture-wetness', isWet ? 'Wet' : 'Dry');
+    GTO.UI.HUD.updateStat('texture-connect', tex === 'highly_connected' ? 'High' : (isWet ? 'Medium' : 'Low'));
+    GTO.UI.HUD.updateStat('texture-flush', isMonotone ? 'Complete' : (isTwotone ? 'Draw Possible' : 'None'));
+
+    if (scenario.boardCards && scenario.boardCards.length > 0) {
+      var boardRanks = scenario.boardCards.map(function(c) { return GTO.Data.RANK_VALUES[c.rank]; });
+      var highRank = Math.max.apply(null, boardRanks);
+      var rankNames = {14:'A',13:'K',12:'Q',11:'J',10:'T',9:'9',8:'8',7:'7',6:'6',5:'5',4:'4',3:'3',2:'2'};
+      GTO.UI.HUD.updateStat('texture-high', rankNames[highRank] || '--');
+    }
+
+    // Hand strength label
+    var hsLabel = GTO.Data.HandStrengthLabels ? GTO.Data.HandStrengthLabels[scenario.handStrength] : scenario.handStrength;
+    GTO.UI.HUD.updateStat('postflop-hand-strength', hsLabel || scenario.handStrength);
+
+    // Range advantage estimate based on position
+    var ipAdv = scenario.isIP ? 55 : 45;
+    var ipBar = document.getElementById('range-adv-ip');
+    var oopBar = document.getElementById('range-adv-oop');
+    var ipVal = document.getElementById('range-adv-ip-val');
+    var oopVal = document.getElementById('range-adv-oop-val');
+    if (ipBar) ipBar.style.width = ipAdv + '%';
+    if (oopBar) oopBar.style.width = (100 - ipAdv) + '%';
+    if (ipVal) ipVal.textContent = ipAdv + '%';
+    if (oopVal) oopVal.textContent = (100 - ipAdv) + '%';
 
     // Show correct action buttons based on spot type
     var isFacing = scenario.spotType.indexOf('facing') >= 0;
@@ -1101,6 +1139,12 @@ GTO.App = {
     });
 
     this._renderActivePlan();
+  },
+
+  _setupLearn: function() {
+    if (GTO.Content && GTO.Content.LearnView) {
+      GTO.Content.LearnView.init();
+    }
   },
 
   _renderActivePlan: function() {

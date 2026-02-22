@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/hand-matrix.css">
   <link rel="stylesheet" href="css/charts.css">
+  <link rel="stylesheet" href="css/learn.css">
 </head>
 <body>
 
@@ -21,7 +22,8 @@
       <div class="nav-tab" data-view="drill">DRILL<span class="tab-key">2</span></div>
       <div class="nav-tab" data-view="playthrough">PLAY<span class="tab-key">3</span></div>
       <div class="nav-tab" data-view="plans">PLANS<span class="tab-key">4</span></div>
-      <div class="nav-tab" data-view="stats">STATS<span class="tab-key">5</span></div>
+      <div class="nav-tab" data-view="learn">LEARN<span class="tab-key">5</span></div>
+      <div class="nav-tab" data-view="stats">STATS<span class="tab-key">6</span></div>
     </div>
     <div class="nav-right">
       <button class="nav-btn" id="btn-help" title="Help">?</button>
@@ -1261,8 +1263,93 @@
       </div>
     </div>
 
-    <!-- ────────── VIEW 5: STATS ────────── -->
-    <div id="view-stats" class="view" style="grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;">
+    <!-- ────────── VIEW 5: LEARN ────────── -->
+    <div id="view-learn" class="view" style="grid-template-columns: 65% 35%;">
+
+      <!-- LEFT: Content Catalog -->
+      <div class="panel">
+        <div class="panel-header">LEARN <span class="panel-meta">GTO Strategy Library</span></div>
+        <div class="panel-body" style="padding: 16px;">
+
+          <!-- Catalog panel (toggled with article panel) -->
+          <div class="learn-catalog-panel">
+
+            <!-- Recommended -->
+            <div class="learn-recommended">
+              <div class="learn-section-header">RECOMMENDED FOR YOU</div>
+              <div id="learn-recommended"></div>
+            </div>
+
+            <!-- Filters -->
+            <div class="learn-section-header">ALL TOPICS</div>
+            <div class="learn-filters" id="learn-filters"></div>
+
+            <!-- Topic list -->
+            <div class="learn-topic-list" id="learn-catalog"></div>
+          </div>
+
+          <!-- Article panel (hidden by default) -->
+          <div class="learn-article-panel">
+            <button class="learn-back-btn">&larr; BACK TO CATALOG</button>
+            <div class="learn-article-scroll">
+              <div class="learn-article-title" id="learn-article-title"></div>
+              <div class="learn-article-meta" id="learn-article-meta"></div>
+              <div class="learn-article-summary" id="learn-article-summary"></div>
+              <div style="margin-bottom: 12px;">
+                <button class="learn-generate-btn" id="learn-generate-btn">&#9889; GENERATE ARTICLE</button>
+              </div>
+              <div class="learn-article-body" id="learn-article-body"></div>
+              <div class="learn-drill-list" id="learn-article-drills"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- RIGHT: Progress Sidebar -->
+      <div class="panel">
+        <div class="panel-header">PROGRESS</div>
+        <div class="panel-body" style="padding: 16px;">
+
+          <div class="learn-progress-card">
+            <div class="learn-progress-label">READING PROGRESS</div>
+            <div class="learn-progress-value" id="learn-read-count">0 / 25</div>
+            <div style="margin-top:8px;">
+              <div class="progress-bar">
+                <div class="progress-fill" id="learn-progress-bar" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="learn-progress-card">
+            <div class="learn-progress-label">YOUR WEAKNESSES</div>
+            <div id="learn-weakness-snapshot" style="margin-top:8px;">
+              <div class="text-dim" style="font-size:10px;">No weaknesses detected yet.</div>
+            </div>
+          </div>
+
+          <div class="learn-progress-card">
+            <div class="learn-progress-label">CACHE</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+              <span class="text-dim" style="font-size:10px;">Stored: <span id="learn-cache-size">0 KB</span></span>
+              <button class="btn btn-sm" id="learn-clear-cache" style="font-size:9px;">Clear</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────── VIEW 6: STATS ────────── -->
+    <div id="view-stats" class="view" style="grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr 1fr;">
+
+      <!-- Full Width: Player Profile -->
+      <div class="panel profile-panel" id="stats-profile">
+        <div class="panel-header">PLAYER PROFILE</div>
+        <div class="panel-body" style="padding: 16px;">
+          <div class="text-dim" style="font-size:10px;">Loading profile...</div>
+        </div>
+      </div>
 
       <!-- Top Left: Accuracy by Position -->
       <div class="panel" id="stats-positions">
@@ -1483,7 +1570,8 @@
           <tr><td><span class="key-hint">2</span></td><td>Drill Trainer</td></tr>
           <tr><td><span class="key-hint">3</span></td><td>Hand Playthrough</td></tr>
           <tr><td><span class="key-hint">4</span></td><td>Training Plans</td></tr>
-          <tr><td><span class="key-hint">5</span></td><td>Statistics</td></tr>
+          <tr><td><span class="key-hint">5</span></td><td>Learn / Content</td></tr>
+          <tr><td><span class="key-hint">6</span></td><td>Statistics</td></tr>
           <tr><td><span class="key-hint">F</span></td><td>Fold</td></tr>
           <tr><td><span class="key-hint">C</span></td><td>Call</td></tr>
           <tr><td><span class="key-hint">R</span></td><td>Raise</td></tr>
@@ -1524,6 +1612,11 @@
 <script src="js/analytics/tracker.js"></script>
 <script src="js/analytics/aggregator.js"></script>
 <script src="js/analytics/dashboard.js"></script>
+<script src="js/data/content-catalog.js"></script>
+<script src="js/content/content-engine.js"></script>
+<script src="js/content/player-profile.js"></script>
+<script src="js/content/learn-view.js"></script>
+<script src="js/content/profile-view.js"></script>
 <script src="js/ai/groq-client.js"></script>
 <script src="js/ai/prompt-builder.js"></script>
 <script src="js/ai/insight-panel.js"></script>

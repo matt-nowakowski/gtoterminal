@@ -13,7 +13,7 @@ GTO.UI.Nav = {
     });
 
     // Keyboard shortcuts for view switching (1-5)
-    var views = ['explore','drill','playthrough','plans','stats'];
+    var views = ['explore','drill','playthrough','plans','learn','stats'];
     views.forEach(function(v, i) {
       GTO.Keyboard.register('navigation', String(i + 1), function() { self.switchView(v); });
     });
@@ -45,6 +45,11 @@ GTO.UI.Nav = {
       }
     } else {
       GTO.Keyboard.setContext('navigation');
+    }
+
+    // Render learn view if switching to learn
+    if (viewName === 'learn' && GTO.Content && GTO.Content.LearnView) {
+      GTO.Content.LearnView.render();
     }
 
     // Render dashboard if switching to stats
