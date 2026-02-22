@@ -5,6 +5,8 @@ GTO.Env = {
 
   // Fetch and parse .env file, then apply known keys to app state
   load: async function() {
+    // .env fetch only works over http(s), skip for file:// protocol
+    if (window.location.protocol === 'file:') return;
     try {
       var response = await fetch('.env');
       if (!response.ok) return; // No .env file — that's fine

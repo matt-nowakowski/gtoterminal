@@ -46,7 +46,8 @@
   /* 2-panel views: equal halves */
   #view-playthrough,
   #view-plans,
-  #view-learn {
+  #view-learn,
+  #view-stream {
     grid-template-columns: 1fr 1fr !important;
   }
 
@@ -151,6 +152,14 @@
     height: auto !important;
     min-height: 100%;
     overflow: visible !important;
+  }
+
+  /* Override ID-specific tablet rules (specificity fix) */
+  #view-explore,
+  #view-drill,
+  #view-stats {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
   }
 
   /* Reset any panel spanning */
@@ -396,6 +405,27 @@
   .seat-label {
     font-size: 8px;
   }
+
+  /* Stream view: single column */
+  #view-stream {
+    grid-template-columns: 1fr !important;
+  }
+
+  .stream-player-wrap {
+    padding-top: 56.25%;
+  }
+
+  .stream-catalog-scroll {
+    max-height: 200px;
+  }
+
+  .stream-schedule-list {
+    max-height: 150px;
+  }
+
+  .stream-card-desc {
+    display: none;
+  }
 }
 
 
@@ -537,6 +567,24 @@
 
   .bar-value {
     width: 30px;
+    font-size: 9px;
+  }
+
+  /* Stream: tighter */
+  .stream-card {
+    padding: 6px 8px;
+  }
+
+  .stream-card-name {
+    font-size: 10px;
+  }
+
+  .spot-entry-label {
+    min-width: 40px;
+    font-size: 8px;
+  }
+
+  .spot-entry-input {
     font-size: 9px;
   }
 }

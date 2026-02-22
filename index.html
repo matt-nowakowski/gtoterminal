@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/charts.css">
   <link rel="stylesheet" href="css/learn.css">
   <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/stream.css">
 </head>
 <body>
 
@@ -25,6 +26,7 @@
       <div class="nav-tab" data-view="plans">PLANS<span class="tab-key">4</span></div>
       <div class="nav-tab" data-view="learn">LEARN<span class="tab-key">5</span></div>
       <div class="nav-tab" data-view="stats">STATS<span class="tab-key">6</span></div>
+      <div class="nav-tab" data-view="stream">STREAM<span class="tab-key">7</span></div>
     </div>
     <div class="nav-right">
       <button class="nav-btn" id="btn-help" title="Help">?</button>
@@ -1479,6 +1481,70 @@
       </div>
     </div>
 
+    <!-- ────────── VIEW 7: STREAM ────────── -->
+    <div id="view-stream" class="view" style="grid-template-columns: 65% 35%;">
+
+      <!-- LEFT: Stream Player -->
+      <div class="panel">
+        <div class="panel-header">
+          LIVE STREAM
+          <span class="panel-tag" id="stream-channel-tag">NO CHANNEL</span>
+        </div>
+        <div class="panel-body" style="padding: 12px;">
+          <!-- Stream player -->
+          <div class="stream-player-wrap" id="stream-player-container">
+            <div class="stream-player-empty">
+              <div class="stream-player-empty-icon">&#9654;</div>
+              <div>Select a stream or enter a Twitch channel</div>
+            </div>
+          </div>
+
+          <!-- Info bar -->
+          <div class="stream-info-bar" id="stream-info-bar">
+            <span class="text-dim">No stream selected</span>
+          </div>
+
+          <!-- Controls -->
+          <div class="stream-controls">
+            <input type="text" class="stream-channel-input" id="stream-channel-input" placeholder="Twitch / YouTube channel or paste URL...">
+            <button class="stream-ctrl-btn" id="stream-load-btn">LOAD</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Catalog + Schedule + Spot Entry -->
+      <div class="panel">
+        <div class="panel-header">STREAMS &amp; SCHEDULE</div>
+        <div class="panel-body" style="padding: 12px;">
+          <!-- Category filters -->
+          <div class="stream-filters" id="stream-filters"></div>
+
+          <!-- Stream catalog -->
+          <div class="stream-catalog-scroll">
+            <div id="stream-catalog"></div>
+          </div>
+
+          <!-- Schedule -->
+          <div class="stream-section-header">UPCOMING EVENTS</div>
+          <div class="stream-schedule-list" id="stream-schedule"></div>
+
+          <!-- Spot Analysis — Vision AI -->
+          <div class="stream-section-header">HAND ANALYSIS</div>
+          <div class="spot-entry-form">
+            <div class="spot-drop-zone" id="spot-drop-zone">
+              <div style="font-size:18px; opacity:0.3; margin-bottom:4px;">&#128247;</div>
+              <div>Click <strong>ANALYZE</strong> to capture screen</div>
+              <div style="margin-top:2px;">or paste screenshot (Cmd+V)</div>
+            </div>
+            <div id="spot-screenshot-preview" style="display:none; align-items:center; gap:8px; margin-bottom:8px;"></div>
+            <input type="file" id="spot-file-input" accept="image/*" style="display:none;">
+            <button class="spot-analyze-btn" id="spot-analyze-btn">&#9889; ANALYZE HAND</button>
+            <div class="spot-result" id="spot-result" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /workspace -->
 
   <!-- ═══════════════════ STATUS BAR ═══════════════════ -->
@@ -1573,6 +1639,7 @@
           <tr><td><span class="key-hint">4</span></td><td>Training Plans</td></tr>
           <tr><td><span class="key-hint">5</span></td><td>Learn / Content</td></tr>
           <tr><td><span class="key-hint">6</span></td><td>Statistics</td></tr>
+          <tr><td><span class="key-hint">7</span></td><td>Live Streams</td></tr>
           <tr><td><span class="key-hint">F</span></td><td>Fold</td></tr>
           <tr><td><span class="key-hint">C</span></td><td>Call</td></tr>
           <tr><td><span class="key-hint">R</span></td><td>Raise</td></tr>
@@ -1619,6 +1686,8 @@
 <script src="js/content/player-profile.js"></script>
 <script src="js/content/learn-view.js"></script>
 <script src="js/content/profile-view.js"></script>
+<script src="js/data/tournament-catalog.js"></script>
+<script src="js/streaming/stream-view.js"></script>
 <script src="js/ai/groq-client.js"></script>
 <script src="js/ai/prompt-builder.js"></script>
 <script src="js/ai/insight-panel.js"></script>

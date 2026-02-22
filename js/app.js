@@ -25,6 +25,7 @@ GTO.App = {
     this._setupPlaythrough();
     this._setupPlans();
     this._setupLearn();
+    this._setupStream();
 
     // Global keyboard shortcuts
     GTO.Keyboard.register('global', '?', function() { GTO.UI.Modal.open('modal-help'); });
@@ -1145,6 +1146,12 @@ GTO.App = {
   _setupLearn: function() {
     if (GTO.Content && GTO.Content.LearnView) {
       GTO.Content.LearnView.init();
+    }
+  },
+
+  _setupStream: function() {
+    if (GTO.Streaming && GTO.Streaming.StreamView) {
+      GTO.Streaming.StreamView.init();
     }
   },
 

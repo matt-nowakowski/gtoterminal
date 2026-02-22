@@ -13,7 +13,7 @@ GTO.UI.Nav = {
     });
 
     // Keyboard shortcuts for view switching (1-5)
-    var views = ['explore','drill','playthrough','plans','learn','stats'];
+    var views = ['explore','drill','playthrough','plans','learn','stats','stream'];
     views.forEach(function(v, i) {
       GTO.Keyboard.register('navigation', String(i + 1), function() { self.switchView(v); });
     });
@@ -60,6 +60,11 @@ GTO.UI.Nav = {
     // Render explore matrix if switching to explore
     if (viewName === 'explore' && GTO.App._updateExploreMatrix) {
       GTO.App._updateExploreMatrix();
+    }
+
+    // Render stream view if switching to stream
+    if (viewName === 'stream' && GTO.Streaming && GTO.Streaming.StreamView) {
+      GTO.Streaming.StreamView.render();
     }
   }
 };
