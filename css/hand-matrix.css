@@ -1,0 +1,136 @@
+/* GTOTerminal — 13x13 Hand Matrix */
+
+.hand-matrix-container {
+  width: 100%;
+  overflow: auto;
+}
+
+.hand-matrix {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  min-width: 364px;
+}
+
+.hand-matrix th {
+  width: 28px;
+  height: 20px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 0;
+  user-select: none;
+}
+
+.hand-matrix td {
+  width: 28px;
+  height: 26px;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 500;
+  padding: 0;
+  border: 1px solid var(--border-dim);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  user-select: none;
+  color: var(--text-primary);
+}
+
+.hand-matrix td:hover {
+  border-color: var(--orange);
+  z-index: 1;
+  filter: brightness(1.4);
+  box-shadow: 0 0 6px rgba(255, 140, 0, 0.4);
+}
+
+/* Action-based coloring (GTO Wizard style) */
+/* Raise = green tones, Call = blue tones, Fold = dark/dim, Mixed = blended */
+.hand-matrix td.action-fold {
+  background: #111;
+  color: var(--text-dim);
+}
+
+.hand-matrix td.action-raise {
+  background: rgba(74, 246, 195, 0.45);
+  color: #fff;
+  font-weight: 600;
+}
+
+.hand-matrix td.action-call {
+  background: rgba(0, 104, 255, 0.45);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Mixed: raise-heavy */
+.hand-matrix td.action-mixed-raise {
+  background: rgba(74, 246, 195, 0.28);
+  color: var(--green);
+}
+
+/* Mixed: call-heavy */
+.hand-matrix td.action-mixed-call {
+  background: rgba(0, 104, 255, 0.28);
+  color: var(--blue);
+}
+
+/* Mixed: raise+call roughly even */
+.hand-matrix td.action-mixed-even {
+  background: rgba(255, 215, 0, 0.25);
+  color: var(--yellow);
+}
+
+/* Mixed: low frequency action (mostly fold with some action) */
+.hand-matrix td.action-mixed-low {
+  background: rgba(255, 140, 0, 0.18);
+  color: var(--orange-dim);
+}
+
+/* Initial state — cells start with freq-0 in HTML, overwritten on first matrix update */
+.hand-matrix td.freq-0 {
+  background: #111;
+  color: var(--text-dim);
+}
+
+/* Active hand highlight */
+.hand-matrix td.active-hand {
+  border: 2px solid var(--orange);
+  box-shadow: 0 0 8px var(--orange-glow);
+  z-index: 2;
+}
+
+/* Pair / suited / offsuit indicators */
+.hand-matrix td.hand-pair {
+  font-style: normal;
+}
+
+/* Suited hands get a subtle top-right corner accent — no confusing dots */
+
+/* Matrix legend */
+.matrix-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-dim);
+  font-size: 9px;
+  color: var(--text-dim);
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+  border: 1px solid var(--border-dim);
+}
