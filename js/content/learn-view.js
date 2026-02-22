@@ -367,6 +367,7 @@ GTO.Content.LearnView = {
           onResult: function(result, scenario) { GTO.App._renderPreflopResult(result, scenario); },
           onSessionEnd: function(session) { GTO.App._renderSessionEnd(session); }
         };
+        GTO.Keyboard.setContext('drill-preflop');
       } else if (config.drillType === 'postflop') {
         var postConfig = document.getElementById('postflop-config');
         var postActive = document.getElementById('postflop-active');
@@ -378,16 +379,19 @@ GTO.Content.LearnView = {
           onResult: function(result, scenario) { GTO.App._renderPostflopResult(result, scenario); },
           onSessionEnd: function(session) { GTO.App._renderPostflopSessionEnd(session); }
         };
+        GTO.Keyboard.setContext('drill-postflop');
       } else if (config.drillType === 'tournament') {
         callbacks = {
           onScenario: function(scenario, index) { GTO.App._renderMTTScenario(scenario, index); },
           onResult: function(result, scenario) { GTO.App._renderMTTResult(result, scenario); },
           onSessionEnd: function(session) { GTO.App._renderSessionEnd(session); }
         };
+        GTO.Keyboard.setContext('drill-mtt');
       }
 
       if (callbacks) {
         GTO.Engine.DrillEngine.startSession(config, callbacks);
+        GTO.App._showDrillProgress();
       }
     }, 200);
   },

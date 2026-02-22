@@ -7,84 +7,98 @@ GTO.Content.ProfileView = {
     if (!container) return;
 
     var profile = GTO.Content.PlayerProfile.compute();
+    var c = profile.skillRating.color;
 
-    var html = '<div class="profile-grid">';
+    var html = '';
 
-    // Skill badge
-    html += '<div class="profile-skill-badge" style="border-color:' + profile.skillRating.color + ';">';
-    html += '<div class="profile-skill-score" style="color:' + profile.skillRating.color + ';">' + profile.skillRating.score + '</div>';
-    html += '<div class="profile-skill-label" style="color:' + profile.skillRating.color + ';">' + profile.skillRating.level + '</div>';
+    // ── TOP ROW: Skill badge + Metrics ──
+    html += '<div class="profile-top">';
+
+    // Skill badge — larger, more prominent
+    html += '<div class="profile-badge-wrap">';
+    html += '<div class="profile-skill-badge" style="border-color:' + c + '; box-shadow: 0 0 20px ' + c + '22, inset 0 0 12px ' + c + '11;">';
+    html += '<div class="profile-skill-score" style="color:' + c + ';">' + profile.skillRating.score + '</div>';
+    html += '<div class="profile-skill-label" style="color:' + c + ';">' + profile.skillRating.level + '</div>';
+    html += '</div>';
     html += '</div>';
 
-    // Right side: metrics + details
-    html += '<div>';
-
-    // Metrics row
-    html += '<div class="profile-metrics">';
-    html += this._metricCard(profile.totalDecisions.toLocaleString(), 'Decisions');
-    html += this._metricCard(profile.totalDecisions > 0 ? Math.round(profile.overallAccuracy * 100) + '%' : '--', 'Accuracy');
-    html += this._metricCard(profile.totalDecisions > 0 ? GTO.Utils.formatEV(profile.totalEvLoss) : '--', 'EV Loss');
-    html += this._metricCard(profile.sessionsCompleted.toString(), 'Sessions');
-    html += this._metricCard(profile.favoritePosition, 'Fav Pos');
+    // Metrics — vertical dividers between them
+    html += '<div class="profile-metrics-row">';
+    html += this._metric(profile.totalDecisions.toLocaleString(), 'DECISIONS', 'var(--text-primary)');
+    html += '<div class="profile-metric-divider"></div>';
+    var accColor = profile.overallAccuracy >= 0.8 ? '#4af6c3' : (profile.overallAccuracy >= 0.65 ? 'var(--orange)' : '#ff433d');
+    html += this._metric(profile.totalDecisions > 0 ? Math.round(profile.overallAccuracy * 100) + '%' : '--', 'ACCURACY', accColor);
+    html += '<div class="profile-metric-divider"></div>';
+    html += this._metric(profile.totalDecisions > 0 ? GTO.Utils.formatEV(profile.totalEvLoss) : '--', 'EV LOSS', '#ff433d');
+    html += '<div class="profile-metric-divider"></div>';
+    html += this._metric(profile.sessionsCompleted.toString(), 'SESSIONS', 'var(--text-primary)');
+    html += '<div class="profile-metric-divider"></div>';
+    html += this._metric(profile.favoritePosition, 'FAV POS', 'var(--orange)');
     html += '</div>';
 
-    // Strengths + Achievements + Recommended in a row
-    html += '<div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-top:12px;">';
+    html += '</div>'; // profile-top
+
+    // ── BOTTOM ROW: Strengths | Achievements | Recommended ──
+    html += '<div class="profile-bottom">';
 
     // Strengths
-    html += '<div>';
-    html += '<div class="profile-section-header">STRENGTHS</div>';
+    html += '<div class="profile-col">';
+    html += '<div class="profile-col-header">STRENGTHS</div>';
     if (profile.strengths.length > 0) {
-      html += '<div class="profile-strengths">';
       profile.strengths.forEach(function(s) {
-        html += '<div class="profile-strength-item">';
-        html += '<span class="str-label">' + s.label + '</span>';
-        html += '<span class="str-value">' + Math.round(s.accuracy * 100) + '%</span>';
+        var pct = Math.round(s.accuracy * 100);
+        html += '<div class="profile-strength-row">';
+        html += '<span class="profile-strength-name">' + s.label + '</span>';
+        html += '<div class="profile-strength-bar-track"><div class="profile-strength-bar-fill" style="width:' + pct + '%;"></div></div>';
+        html += '<span class="profile-strength-pct">' + pct + '%</span>';
         html += '</div>';
       });
-      html += '</div>';
     } else {
-      html += '<div class="text-dim" style="font-size:10px;">Not enough data yet</div>';
+      html += '<div class="profile-empty">Complete 15+ decisions per area</div>';
     }
     html += '</div>';
 
     // Achievements
-    html += '<div>';
-    html += '<div class="profile-section-header">ACHIEVEMENTS</div>';
+    html += '<div class="profile-col">';
+    html += '<div class="profile-col-header">ACHIEVEMENTS</div>';
     if (profile.achievements.length > 0) {
-      html += '<div class="profile-achievements">';
+      html += '<div class="profile-achievement-grid">';
       profile.achievements.forEach(function(a) {
-        html += '<div class="profile-achievement" title="' + a.desc + '">' + a.label + '</div>';
+        html += '<div class="profile-ach-badge" title="' + a.desc + '">';
+        html += '<div class="profile-ach-icon">&#9733;</div>';
+        html += '<div class="profile-ach-label">' + a.label + '</div>';
+        html += '</div>';
       });
       html += '</div>';
     } else {
-      html += '<div class="text-dim" style="font-size:10px;">Complete drills to earn badges</div>';
+      html += '<div class="profile-empty">Complete drills to earn badges</div>';
     }
     html += '</div>';
 
-    // Recommended content
-    html += '<div>';
-    html += '<div class="profile-section-header">RECOMMENDED READING</div>';
+    // Recommended
+    html += '<div class="profile-col">';
+    html += '<div class="profile-col-header">RECOMMENDED READING</div>';
     if (profile.recommendedContent.length > 0) {
-      html += '<div class="profile-recommended">';
       profile.recommendedContent.forEach(function(topic) {
-        html += '<button class="profile-rec-link" data-topic-id="' + topic.id + '">' + topic.title + '</button>';
+        var catColor = GTO.Data.ContentCatalog.getCategoryColor(topic.category);
+        html += '<div class="profile-rec-item" data-topic-id="' + topic.id + '">';
+        html += '<span class="profile-rec-dot" style="background:' + catColor + ';"></span>';
+        html += '<span class="profile-rec-text">' + topic.title + '</span>';
+        html += '<span class="profile-rec-arrow">&rarr;</span>';
+        html += '</div>';
       });
-      html += '</div>';
     } else {
-      html += '<div class="text-dim" style="font-size:10px;">Complete drills to get recommendations</div>';
+      html += '<div class="profile-empty">Complete drills for recommendations</div>';
     }
     html += '</div>';
 
-    html += '</div>'; // 3-column grid
-    html += '</div>'; // right side
-    html += '</div>'; // profile-grid
+    html += '</div>'; // profile-bottom
 
-    container.innerHTML = html;
+    container.querySelector('.panel-body').innerHTML = html;
 
     // Wire recommended content links
-    container.querySelectorAll('.profile-rec-link').forEach(function(link) {
-      link.addEventListener('click', function() {
+    container.querySelectorAll('.profile-rec-item').forEach(function(el) {
+      el.addEventListener('click', function() {
         var topicId = this.getAttribute('data-topic-id');
         if (topicId) {
           GTO.UI.Nav.switchView('learn');
@@ -96,10 +110,10 @@ GTO.Content.ProfileView = {
     });
   },
 
-  _metricCard: function(value, label) {
-    return '<div class="profile-metric-card">' +
-      '<div class="profile-metric-value">' + value + '</div>' +
-      '<div class="profile-metric-label">' + label + '</div>' +
+  _metric: function(value, label, color) {
+    return '<div class="profile-metric">' +
+      '<div class="profile-metric-val" style="color:' + color + ';">' + value + '</div>' +
+      '<div class="profile-metric-lbl">' + label + '</div>' +
     '</div>';
   }
 };
