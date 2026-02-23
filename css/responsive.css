@@ -21,30 +21,23 @@
     display: none;
   }
 
-  /* 3-panel views → 2 columns, 3rd panel wraps below */
+  /* 2-panel views: filters left, matrix+details right */
   #view-explore {
-    grid-template-columns: 1fr 1fr !important;
-    grid-template-rows: 1fr auto !important;
+    grid-template-columns: 30% 70% !important;
     overflow-y: auto !important;
-  }
-
-  #view-explore > .panel:nth-child(3) {
-    grid-column: 1 / -1;
   }
 
   #view-drill {
-    grid-template-columns: 1fr 1fr !important;
-    grid-template-rows: auto auto !important;
+    grid-template-columns: 40% 60% !important;
     overflow-y: auto !important;
   }
 
-  #view-drill > .panel:nth-child(2) {
-    grid-column: 1 / -1;
-    max-height: 320px;
+  /* Playthrough: similar split to drill */
+  #view-playthrough {
+    grid-template-columns: 38% 62% !important;
   }
 
   /* 2-panel views: equal halves */
-  #view-playthrough,
   #view-plans,
   #view-learn,
   #view-stream {
@@ -58,20 +51,8 @@
     overflow-y: auto !important;
   }
 
-  /* Hand matrix: smaller cells */
-  .hand-matrix {
-    min-width: unset;
-  }
-
-  .hand-matrix th {
-    width: 24px;
-    height: 18px;
-    font-size: 8px;
-  }
-
+  /* Hand matrix: smaller text */
   .hand-matrix td {
-    width: 24px;
-    height: 22px;
     font-size: 8px;
   }
 
@@ -184,21 +165,8 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .hand-matrix {
-    min-width: unset;
-  }
-
-  .hand-matrix th {
-    width: 22px;
-    height: 18px;
-    font-size: 7px;
-  }
-
   .hand-matrix td {
-    width: 22px;
-    height: 20px;
     font-size: 7px;
-    padding: 0;
   }
 
   /* Playing cards: compact */
@@ -406,6 +374,37 @@
     font-size: 8px;
   }
 
+  /* Play/Drill/Explore: remove max-height constraints on mobile */
+  .play-feedback-section,
+  .drill-feedback-section,
+  .explore-detail-section {
+    max-height: none;
+  }
+
+  .play-matrix-section,
+  .drill-matrix-section,
+  .explore-matrix-section {
+    min-height: 200px;
+  }
+
+  /* Solver: full width inputs, no side-by-side */
+  .solver-board-input {
+    flex-wrap: wrap;
+  }
+
+  .solver-hand-table {
+    font-size: 9px;
+  }
+
+  #solver-hand-table-wrap {
+    max-height: 300px;
+  }
+
+  .solver-freq-label {
+    width: 50px;
+    font-size: 9px;
+  }
+
   /* Stream view: single column */
   #view-stream {
     grid-template-columns: 1fr !important;
@@ -444,16 +443,8 @@
     margin-right: 4px;
   }
 
-  /* Hand matrix: minimum viable */
-  .hand-matrix th {
-    width: 20px;
-    height: 16px;
-    font-size: 6px;
-  }
-
+  /* Hand matrix: smallest text */
   .hand-matrix td {
-    width: 20px;
-    height: 18px;
     font-size: 6px;
   }
 

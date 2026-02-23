@@ -18,3 +18,7 @@ Thumbs.db
 
 # Node (if ever added)
 node_modules/
+
+# Rust/WASM solver build artifacts
+solver/target/
+solver/Cargo.lock

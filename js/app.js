@@ -223,6 +223,16 @@ GTO.App = {
     if (feedbackContent) feedbackContent.classList.add('hidden');
     GTO.UI.HandMatrix.clearMatrix('hand-matrix-table');
 
+    // Clear summary bar, position bar, stats
+    var summaryBar = document.getElementById('drill-summary-bar');
+    if (summaryBar) summaryBar.innerHTML = '';
+    var posBar = document.getElementById('feedback-position-bar');
+    if (posBar) posBar.innerHTML = '';
+    var eqEl = document.getElementById('feedback-equity');
+    if (eqEl) eqEl.textContent = '--';
+    var poEl = document.getElementById('feedback-pot-odds');
+    if (poEl) poEl.textContent = '--';
+
     // Enable action buttons
     document.querySelectorAll('#preflop-actions .action-btn').forEach(function(b) { b.disabled = false; });
 
@@ -251,16 +261,30 @@ GTO.App = {
   },
 
   _renderPreflopResult: function(result, scenario) {
+    // Use passed scenario directly (always valid); fall back to engine state
+    var currentScenario = scenario || GTO.Engine.DrillEngine.getCurrentScenario();
+
     var feedbackEmpty = document.getElementById('feedback-empty');
     var feedbackContent = document.getElementById('feedback-content');
     if (feedbackEmpty) feedbackEmpty.classList.add('hidden');
     if (feedbackContent) feedbackContent.classList.remove('hidden');
 
+    // Update hand matrix with full range FIRST (most important visual)
+    try {
+      if (currentScenario) {
+        GTO.UI.HandMatrix.showPreflopRange('hand-matrix-table', currentScenario);
+        var drillRangeData = GTO.Engine.PreflopDrill.getRangeForScenario(currentScenario);
+        GTO.UI.HandMatrix.updateSummaryBar('drill-summary-bar', drillRangeData);
+      }
+    } catch(e) {
+      console.error('[Drill] Matrix update error:', e);
+    }
+
     // GTO Frequency bars
     var freqs = result.gtoFreqs || {};
-    this._renderFreqBar('freq-fold', freqs.fold || 0, 'fill-fold');
-    this._renderFreqBar('freq-call', freqs.call || 0, 'fill-call');
-    this._renderFreqBar('freq-raise', freqs.raise || 0, 'fill-raise');
+    this._renderFreqBar('freq-fold', freqs.fold || 0);
+    this._renderFreqBar('freq-call', freqs.call || 0);
+    this._renderFreqBar('freq-raise', freqs.raise || 0);
 
     // Verdict
     var verdictEl = document.getElementById('verdict');
@@ -276,14 +300,45 @@ GTO.App = {
     }
 
     // EV stats
-    GTO.UI.HUD.updateStat('ev-optimal', (result.bestAction || '?').toUpperCase() + ' (' + Math.round((result.bestFreq || 0) * 100) + '%)');
-    GTO.UI.HUD.updateStat('ev-loss', GTO.Utils.formatEV(result.evLoss || 0));
+    try {
+      GTO.UI.HUD.updateStat('ev-optimal', (result.bestAction || '?').toUpperCase() + ' (' + Math.round((result.bestFreq || 0) * 100) + '%)');
+      GTO.UI.HUD.updateStat('ev-loss', GTO.Utils.formatEV(result.evLoss || 0));
+    } catch(e) {}
 
-    // Update hand matrix with full range
-    var currentScenario = GTO.Engine.DrillEngine.getCurrentScenario();
-    if (currentScenario) {
-      GTO.UI.HandMatrix.showPreflopRange('hand-matrix-table', currentScenario);
-    }
+    // Position context bar
+    try {
+      var posBar = document.getElementById('feedback-position-bar');
+      if (posBar && currentScenario) {
+        var positions = GTO.Data.POSITIONS || ['UTG','MP','CO','BTN','SB','BB'];
+        var heroPos = currentScenario.position;
+        var villainPos = currentScenario.villainPosition;
+        var posHtml = '';
+        positions.forEach(function(pos) {
+          var cls = 'position-chip';
+          if (pos === heroPos) cls += ' hero';
+          if (pos === villainPos) cls += ' villain';
+          posHtml += '<span class="' + cls + '">' + pos + '</span>';
+        });
+        posBar.innerHTML = posHtml;
+      }
+    } catch(e) {}
+
+    // Hand equity + pot odds
+    try {
+      var equityEl = document.getElementById('feedback-equity');
+      if (equityEl && currentScenario && currentScenario.hand) {
+        var eq = GTO.Engine.HandEvaluator.estimatePreflopEquity(currentScenario.hand);
+        equityEl.textContent = Math.round(eq * 100) + '%';
+      }
+      var potOddsEl = document.getElementById('feedback-pot-odds');
+      if (potOddsEl && currentScenario) {
+        if (currentScenario.actionContext === 'rfi') potOddsEl.textContent = 'N/A';
+        else if (currentScenario.actionContext === 'vs_raise') potOddsEl.textContent = '~36%';
+        else if (currentScenario.actionContext === 'vs_3bet') potOddsEl.textContent = '~38%';
+        else if (currentScenario.actionContext === 'vs_4bet') potOddsEl.textContent = '~31%';
+        else potOddsEl.textContent = '--';
+      }
+    } catch(e) {}
 
     // Update status bar + live progress
     GTO.UI.HUD.updateStatusBar(GTO.Engine.DrillEngine.getProgress());
@@ -391,13 +446,14 @@ GTO.App = {
     setToggle('explore-position', scenario.position || 'UTG');
     setToggle('explore-action', scenario.actionContext || 'rfi');
 
-    // Handle villain position for vs_raise/vs_3bet
-    if (scenario.actionContext === 'vs_raise' || scenario.actionContext === 'vs_3bet') {
+    // Handle villain position for vs_raise/vs_3bet/vs_4bet
+    if (scenario.actionContext === 'vs_raise' || scenario.actionContext === 'vs_3bet' || scenario.actionContext === 'vs_4bet') {
       var villainRow = document.getElementById('explore-villain-row');
       if (villainRow) villainRow.classList.remove('hidden');
       var posKey = scenario.positionKey || '';
       var parts = posKey.split('_');
-      var villain = scenario.actionContext === 'vs_raise' ? parts[0] : parts[1];
+      // vs_raise: villain_hero, vs_3bet: hero_villain, vs_4bet: villain_hero
+      var villain = scenario.actionContext === 'vs_3bet' ? parts[1] : parts[0];
       if (villain) setToggle('explore-villain', villain);
     }
 
@@ -772,22 +828,19 @@ GTO.App = {
         var active = document.getElementById('play-active');
         if (config) config.classList.remove('hidden');
         if (active) active.classList.add('hidden');
-        var histEmpty = document.getElementById('play-history-empty');
-        var histContent = document.getElementById('play-history-content');
-        if (histEmpty) histEmpty.classList.remove('hidden');
-        if (histContent) histContent.classList.add('hidden');
-      });
-    }
-
-    // Event delegation for "View Range" links in street results
-    var streetResults = document.getElementById('play-street-results');
-    if (streetResults) {
-      streetResults.addEventListener('click', function(e) {
-        var link = e.target.closest('.play-view-range-link');
-        if (!link) return;
-        e.preventDefault();
-        var idx = parseInt(link.getAttribute('data-street-index'), 10);
-        self._viewPlayRange(idx);
+        // Reset right panel to empty state
+        var rangeEmpty = document.getElementById('play-range-empty');
+        var matrixArea = document.getElementById('play-matrix-area');
+        var boardArea = document.getElementById('play-board-area');
+        var feedbackEmpty = document.getElementById('play-feedback-empty');
+        var feedbackContent = document.getElementById('play-feedback-content');
+        if (rangeEmpty) rangeEmpty.classList.remove('hidden');
+        if (matrixArea) matrixArea.classList.add('hidden');
+        if (boardArea) boardArea.classList.add('hidden');
+        if (feedbackEmpty) feedbackEmpty.classList.remove('hidden');
+        if (feedbackContent) feedbackContent.classList.add('hidden');
+        var summaryBar = document.getElementById('play-summary-bar');
+        if (summaryBar) summaryBar.innerHTML = '';
       });
     }
 
@@ -830,11 +883,28 @@ GTO.App = {
     var endActions = document.getElementById('play-end-actions');
     if (endActions) endActions.classList.add('hidden');
 
-    // Show history panel
-    var histEmpty = document.getElementById('play-history-empty');
-    var histContent = document.getElementById('play-history-content');
-    if (histEmpty) histEmpty.classList.add('hidden');
-    if (histContent) histContent.classList.remove('hidden');
+    // Reset right panel to initial state
+    var rangeEmpty = document.getElementById('play-range-empty');
+    var matrixArea = document.getElementById('play-matrix-area');
+    var boardArea = document.getElementById('play-board-area');
+    var feedbackEmpty = document.getElementById('play-feedback-empty');
+    var feedbackContent = document.getElementById('play-feedback-content');
+    if (rangeEmpty) rangeEmpty.classList.remove('hidden');
+    if (matrixArea) matrixArea.classList.add('hidden');
+    if (boardArea) boardArea.classList.add('hidden');
+    if (feedbackEmpty) {
+      feedbackEmpty.classList.remove('hidden');
+      var emptyText = feedbackEmpty.querySelector('.empty-state-text');
+      if (emptyText) emptyText.textContent = 'Choose your action';
+      var emptyHint = feedbackEmpty.querySelector('.empty-state-hint');
+      if (emptyHint) emptyHint.textContent = 'Press F / C / R to submit';
+    }
+    if (feedbackContent) feedbackContent.classList.add('hidden');
+    GTO.UI.HandMatrix.clearMatrix('play-matrix-table');
+    var summaryBar = document.getElementById('play-summary-bar');
+    if (summaryBar) summaryBar.innerHTML = '';
+    var rangeTag = document.getElementById('play-range-tag');
+    if (rangeTag) rangeTag.textContent = 'PREFLOP';
 
     // Render hero cards
     GTO.UI.BoardDisplay.renderHoleCards('play-hero-cards', hand.cards);
@@ -872,16 +942,6 @@ GTO.App = {
     var results = document.getElementById('play-street-results');
     if (results) results.innerHTML = '';
     this._playStreetResults = [];
-
-    // Reset scores
-    ['preflop','flop','turn','river','total'].forEach(function(s) {
-      var el = document.getElementById('play-score-' + s);
-      if (el) { el.textContent = '--'; el.className = 'stat-value'; }
-    });
-
-    // Clear action log
-    var log = document.getElementById('play-action-log');
-    if (log) log.innerHTML = '';
 
     var handNum = document.getElementById('play-hand-num');
     if (handNum) handNum.textContent = 'Hand #' + hand.id.slice(0, 6);
@@ -924,85 +984,26 @@ GTO.App = {
     // Disable current buttons
     document.querySelectorAll('#play-current-actions .action-btn').forEach(function(b) { b.disabled = true; });
 
-    // Update score for this street
-    var scoreEl = document.getElementById('play-score-' + street);
-    if (scoreEl) {
-      var verdictClass = result.verdict === 'optimal' ? 'positive' : (result.verdict === 'acceptable' ? 'text-orange' : 'negative');
-      scoreEl.className = 'stat-value ' + verdictClass;
-      scoreEl.textContent = GTO.Engine.Scoring.getVerdictLabel(result.verdict) + ' (' + GTO.Utils.formatEV(result.evLoss) + ')';
-    }
+    // Render inline range analysis + feedback in right panel
+    this._renderPlayRangeAnalysis(street, hand, result, action);
 
-    // Add structured street result row with View Range link
+    // Add compact street result row to left panel timeline
     var resultsEl = document.getElementById('play-street-results');
     if (resultsEl) {
       var verdictColor = result.verdict === 'optimal' ? 'var(--green)' : (result.verdict === 'acceptable' ? 'var(--orange)' : 'var(--red)');
       var verdictBg = result.verdict === 'optimal' ? 'rgba(74,246,195,0.08)' : (result.verdict === 'acceptable' ? 'rgba(255,215,0,0.08)' : 'rgba(255,67,61,0.08)');
       var icon = result.verdict === 'optimal' ? '&#10003;' : (result.verdict === 'acceptable' ? '~' : '&#10007;');
 
-      // Build mini board cards for this street
-      var boardHtml = '';
-      if (street !== 'preflop' && hand.board && hand.board.length > 0) {
-        boardHtml = '<div style="display:flex; gap:2px; margin-top:4px;">';
-        hand.board.forEach(function(c) {
-          var sym = GTO.Data.SUIT_SYMBOLS[c.suit] || '';
-          var suitCls = c.suit === 'h' || c.suit === 'd' ? 'color:var(--red)' : 'color:var(--text-primary)';
-          boardHtml += '<span style="font-size:10px; ' + suitCls + ';">' + c.rank + sym + '</span>';
-        });
-        boardHtml += '</div>';
-      }
-
-      // Store street context for view range lookup
-      var streetIndex = this._playStreetResults ? this._playStreetResults.length : 0;
-      if (!this._playStreetResults) this._playStreetResults = [];
-      this._playStreetResults.push({
-        street: street,
-        format: hand.format,
-        stackDepth: hand.stackDepth,
-        position: hand.heroPosition,
-        hand: hand.hand
-      });
-
-      // Build suggestion line for suboptimal plays
-      var suggestionHtml = '';
-      if (result.verdict !== 'optimal' && result.bestAction) {
-        var bestLabel = result.bestAction.replace('bet_33', 'Bet 1/3').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Bet Pot').toUpperCase();
-        suggestionHtml = '<div style="margin-top:4px; padding:4px 8px; background:rgba(255,140,0,0.1); border-left:2px solid var(--orange); font-size:10px; color:var(--orange);">' +
-          'GTO prefers <strong>' + bestLabel + '</strong> (' + Math.round((result.bestFreq || 0) * 100) + '% frequency)' +
-        '</div>';
-      }
-
-      var line = '<div style="padding:8px 10px; margin-bottom:4px; border:1px solid var(--border-dim); border-radius:var(--radius-sm); background:' + verdictBg + ';">' +
+      var line = '<div style="padding:6px 10px; margin-bottom:3px; border:1px solid var(--border-dim); border-radius:var(--radius-sm); background:' + verdictBg + ';">' +
         '<div style="display:flex; align-items:center; gap:8px; font-size:11px;">' +
           '<span style="color:var(--orange); font-weight:700; font-size:10px; min-width:56px; text-transform:uppercase; letter-spacing:0.08em;">' + street + '</span>' +
-          '<span style="color:var(--text-dim); font-size:10px;">Pot ' + hand.pot.toFixed(1) + 'bb</span>' +
-          '<span style="margin-left:auto; color:' + verdictColor + '; font-weight:700;">' + icon + ' ' + GTO.Engine.Scoring.getVerdictLabel(result.verdict) + '</span>' +
-        '</div>' +
-        '<div style="display:flex; align-items:center; gap:8px; margin-top:4px; font-size:11px;">' +
-          '<span style="color:var(--text-secondary);">You: <strong style="color:var(--text-primary);">' + (result.userAction || action).toUpperCase() + '</strong></span>' +
-          '<span style="color:var(--text-dim); font-size:10px; margin-left:auto;">' + GTO.Utils.formatEV(result.evLoss) + '</span>' +
-        '</div>' +
-        suggestionHtml +
-        boardHtml +
-        '<div style="margin-top:6px;">' +
-          '<a href="#" class="play-view-range-link" data-street-index="' + streetIndex + '" style="font-size:10px; color:var(--blue); text-decoration:none; font-weight:600; letter-spacing:0.04em;">VIEW RANGE FOR THIS SPOT &rarr;</a>' +
+          '<span style="color:var(--text-secondary);">' + (result.userAction || action).toUpperCase() + '</span>' +
+          '<span style="margin-left:auto; color:' + verdictColor + '; font-weight:600; font-size:10px;">' + icon + ' ' + GTO.Engine.Scoring.getVerdictLabel(result.verdict) + '</span>' +
+          '<span style="color:var(--text-dim); font-size:10px;">' + GTO.Utils.formatEV(result.evLoss) + '</span>' +
         '</div>' +
       '</div>';
       resultsEl.innerHTML += line;
     }
-
-    // Add to action log (right panel)
-    var log = document.getElementById('play-action-log');
-    if (log) {
-      var logLine = '<div><span class="text-orange">' + street.toUpperCase() + ':</span> You chose <strong>' +
-        (result.userAction || action).toUpperCase() + '</strong> — ' +
-        '<span class="' + (result.verdict === 'optimal' ? 'positive' : 'negative') + '">' +
-        GTO.Engine.Scoring.getVerdictLabel(result.verdict) + '</span></div>';
-      log.innerHTML += logLine;
-    }
-
-    // Update total score
-    var totalEl = document.getElementById('play-score-total');
-    if (totalEl) totalEl.textContent = GTO.Utils.formatEV(hand.totalEvLoss);
 
     // If folded or hand complete, show summary
     if (hand.isComplete) {
@@ -1042,6 +1043,9 @@ GTO.App = {
 
     // Render new action buttons for this street
     this._renderPlayButtons(street);
+
+    // Show board texture analysis in right panel, reset feedback
+    this._preparePlayRangeForStreet(street, hand);
 
     // Set appropriate keyboard context
     GTO.Keyboard.setContext('play-postflop');
@@ -1084,38 +1088,255 @@ GTO.App = {
         '</div>';
     }
 
-    // Add summary line to action log
-    var log = document.getElementById('play-action-log');
-    if (log) {
-      var logTotalClass = hand.totalEvLoss < 0.5 ? 'positive' : 'negative';
-      log.innerHTML += '<div style="margin-top:6px; padding-top:6px; border-top:1px solid var(--border-dim);">' +
-        '<span class="text-dim">Total EV Loss:</span> <strong class="' + logTotalClass + '">' +
-        GTO.Utils.formatEV(hand.totalEvLoss) + '</strong></div>';
+    // Update AI review text
+    var aiBody = document.getElementById('ai-insight-play-body');
+    if (aiBody) aiBody.textContent = 'Hand complete. Total EV loss: ' + GTO.Utils.formatEV(hand.totalEvLoss);
+    var aiPanel = document.getElementById('ai-insight-play');
+    if (aiPanel) aiPanel.classList.remove('hidden');
+  },
+
+  // ── Play Range Analysis (inline, per-street) ──
+
+  _renderPlayRangeAnalysis: function(street, hand, result, action) {
+    // Hide empty states
+    var rangeEmpty = document.getElementById('play-range-empty');
+    if (rangeEmpty) rangeEmpty.classList.add('hidden');
+    var feedbackEmpty = document.getElementById('play-feedback-empty');
+    if (feedbackEmpty) feedbackEmpty.classList.add('hidden');
+    var feedbackContent = document.getElementById('play-feedback-content');
+    if (feedbackContent) feedbackContent.classList.remove('hidden');
+
+    // Update street tag
+    var tag = document.getElementById('play-range-tag');
+    if (tag) tag.textContent = street.toUpperCase();
+
+    if (street === 'preflop') {
+      this._renderPlayPreflopRange(hand, result);
+    } else {
+      this._renderPlayPostflopRange(street, hand, result);
+    }
+    this._renderPlayFeedback(street, hand, result, action);
+  },
+
+  _renderPlayPreflopRange: function(hand, result) {
+    var matrixArea = document.getElementById('play-matrix-area');
+    var boardArea = document.getElementById('play-board-area');
+    if (matrixArea) matrixArea.classList.remove('hidden');
+    if (boardArea) boardArea.classList.add('hidden');
+
+    try {
+      var scenario = {
+        format: hand.format,
+        stackDepth: hand.stackDepth,
+        position: hand.heroPosition,
+        positionKey: hand.heroPosition,
+        actionContext: 'rfi'
+      };
+      var rangeData = GTO.Engine.PreflopDrill.getRangeForScenario(scenario);
+      GTO.UI.HandMatrix.updateMatrix('play-matrix-table', rangeData, null, hand.hand);
+      GTO.UI.HandMatrix.updateSummaryBar('play-summary-bar', rangeData);
+    } catch (e) {
+      // Silently handle matrix rendering errors
     }
   },
 
-  _viewPlayRange: function(streetIndex) {
-    var ctx = null;
-    if (typeof streetIndex === 'number' && this._playStreetResults && this._playStreetResults[streetIndex]) {
-      ctx = this._playStreetResults[streetIndex];
-    } else {
-      // Fallback to current hand
-      var hand = GTO.Engine.HandPlaythrough.getHand();
-      if (!hand) return;
-      ctx = { format: hand.format, stackDepth: hand.stackDepth, position: hand.heroPosition, hand: hand.hand, street: 'preflop' };
+  _renderPlayPostflopRange: function(street, hand, result) {
+    var matrixArea = document.getElementById('play-matrix-area');
+    var boardArea = document.getElementById('play-board-area');
+    if (matrixArea) matrixArea.classList.add('hidden');
+    if (boardArea) boardArea.classList.remove('hidden');
+
+    // Clear summary bar (not relevant for postflop)
+    var summaryBar = document.getElementById('play-summary-bar');
+    if (summaryBar) summaryBar.innerHTML = '';
+
+    try {
+      // Render board cards
+      GTO.UI.BoardDisplay.renderBoard('play-range-board-display', hand.board);
+
+      // Classify texture
+      var tex = GTO.Data.BoardCategories.classify(hand.board);
+      var texLabel = GTO.Data.BoardTextureLabels ? GTO.Data.BoardTextureLabels[tex] : tex;
+      GTO.UI.HUD.updateStat('play-texture-type', texLabel || tex);
+
+      var isWet = tex.indexOf('wet') >= 0 || tex === 'highly_connected';
+      var isMonotone = tex === 'monotone';
+      var isTwotone = tex.indexOf('twotone') >= 0;
+
+      GTO.UI.HUD.updateStat('play-texture-wetness', isWet ? 'Wet' : 'Dry');
+      GTO.UI.HUD.updateStat('play-texture-connect', tex === 'highly_connected' ? 'High' : (isWet ? 'Medium' : 'Low'));
+      GTO.UI.HUD.updateStat('play-texture-flush', isMonotone ? 'Complete' : (isTwotone ? 'Draw Possible' : 'None'));
+
+      if (hand.board && hand.board.length > 0) {
+        var boardRanks = hand.board.map(function(c) { return GTO.Data.RANK_VALUES[c.rank]; });
+        var highRank = Math.max.apply(null, boardRanks);
+        var rankNames = {14:'A',13:'K',12:'Q',11:'J',10:'T',9:'9',8:'8',7:'7',6:'6',5:'5',4:'4',3:'3',2:'2'};
+        GTO.UI.HUD.updateStat('play-texture-high', rankNames[highRank] || '--');
+      }
+
+      // Hand strength
+      var strength = GTO.Engine.HandEvaluator.classify(hand.cards, hand.board);
+      var strengthLabel = GTO.Data.HandStrengthLabels ? GTO.Data.HandStrengthLabels[strength] : strength;
+      GTO.UI.HUD.updateStat('play-hand-strength', strengthLabel || strength);
+
+      // Range advantage estimate
+      var positions = GTO.Data.POSITIONS;
+      var posIdx = positions.indexOf(hand.heroPosition);
+      var isIP = posIdx >= 3; // BTN, CO, MP generally IP
+      var ipAdv = isIP ? 55 : 45;
+      var ipBar = document.getElementById('play-range-adv-ip');
+      var oopBar = document.getElementById('play-range-adv-oop');
+      var ipVal = document.getElementById('play-range-adv-ip-val');
+      var oopVal = document.getElementById('play-range-adv-oop-val');
+      if (ipBar) ipBar.style.width = ipAdv + '%';
+      if (oopBar) oopBar.style.width = (100 - ipAdv) + '%';
+      if (ipVal) ipVal.textContent = ipAdv + '%';
+      if (oopVal) oopVal.textContent = (100 - ipAdv) + '%';
+    } catch (e) {
+      // Silently handle postflop rendering errors
+    }
+  },
+
+  _renderPlayFeedback: function(street, hand, result, action) {
+    // Build frequency bars dynamically based on street
+    var barsContainer = document.getElementById('play-freq-bars');
+    if (barsContainer) {
+      var freqs = result.gtoFreqs || {};
+      var html = '';
+      if (street === 'preflop') {
+        var pf = { fold: freqs.fold || 0, call: freqs.call || 0, raise: freqs.raise || 0 };
+        html += '<div class="freq-bar-item"><span class="freq-bar-label">Fold</span><div class="freq-bar-track"><div class="freq-bar-fill fill-fold" style="width:' + Math.round(pf.fold * 100) + '%"></div></div><span class="freq-bar-value">' + Math.round(pf.fold * 100) + '%</span></div>';
+        html += '<div class="freq-bar-item"><span class="freq-bar-label">Call</span><div class="freq-bar-track"><div class="freq-bar-fill fill-call" style="width:' + Math.round(pf.call * 100) + '%"></div></div><span class="freq-bar-value">' + Math.round(pf.call * 100) + '%</span></div>';
+        html += '<div class="freq-bar-item"><span class="freq-bar-label">Raise</span><div class="freq-bar-track"><div class="freq-bar-fill fill-raise" style="width:' + Math.round(pf.raise * 100) + '%"></div></div><span class="freq-bar-value">' + Math.round(pf.raise * 100) + '%</span></div>';
+      } else {
+        Object.keys(freqs).forEach(function(act) {
+          var pct = Math.round(freqs[act] * 100);
+          var label = act.replace('bet_33', 'Bet 1/3').replace('bet_50', 'Bet 1/2').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Pot').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise');
+          var fillClass = act === 'check' ? 'fill-check' : (act === 'fold' ? 'fill-fold' : 'fill-bet');
+          html += '<div class="freq-bar-item"><span class="freq-bar-label">' + label + '</span><div class="freq-bar-track"><div class="freq-bar-fill ' + fillClass + '" style="width:' + pct + '%"></div></div><span class="freq-bar-value">' + pct + '%</span></div>';
+        });
+      }
+      barsContainer.innerHTML = html;
     }
 
-    // Build a pseudo-scenario for the explore view
-    this._lastScenario = {
-      format: ctx.format,
-      stackDepth: ctx.stackDepth,
-      position: ctx.position,
-      actionContext: 'rfi',
-      hand: ctx.hand
-    };
+    // Verdict
+    var verdictEl = document.getElementById('play-verdict');
+    if (verdictEl) {
+      verdictEl.className = 'verdict ' + GTO.Engine.Scoring.getVerdictClass(result.verdict);
+      var actionLabel = (result.userAction || action).toUpperCase();
+      var verdictHtml = '<span class="verdict-icon">' + GTO.Engine.Scoring.getVerdictIcon(result.verdict) + '</span> ' +
+        actionLabel + ' — ' + GTO.Engine.Scoring.getVerdictLabel(result.verdict);
+      if (result.verdict !== 'optimal' && result.bestAction) {
+        var bestLabel = result.bestAction.replace('bet_33', 'Bet 1/3').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Bet Pot').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise').toUpperCase();
+        verdictHtml += '<div style="font-size:11px; font-weight:400; margin-top:4px; opacity:0.85;">GTO prefers <strong>' +
+          bestLabel + '</strong> (' + Math.round((result.bestFreq || 0) * 100) + '% frequency)</div>';
+      }
+      verdictEl.innerHTML = verdictHtml;
+    }
 
-    // Navigate to explore with filters pre-filled
-    this._navigateToExploreWithScenario();
+    // EV stats
+    GTO.UI.HUD.updateStat('play-ev-optimal', result.bestAction ? result.bestAction.toUpperCase() : '--');
+    GTO.UI.HUD.updateStat('play-ev-loss', GTO.Utils.formatEV(result.evLoss));
+
+    // Position context bar
+    try {
+      var posBar = document.getElementById('play-position-bar');
+      if (posBar) {
+        var posHtml = '';
+        GTO.Data.POSITIONS.forEach(function(p) {
+          var cls = 'position-chip' + (p === hand.heroPosition ? ' hero' : '');
+          posHtml += '<div class="' + cls + '">' + p + '</div>';
+        });
+        posBar.innerHTML = posHtml;
+      }
+    } catch (e) {}
+
+    // Equity and pot odds
+    try {
+      var equity;
+      if (street === 'preflop') {
+        equity = GTO.Engine.HandEvaluator.estimatePreflopEquity(hand.hand);
+      } else {
+        equity = GTO.Engine.HandEvaluator.estimateEquity(hand.cards, hand.board);
+      }
+      GTO.UI.HUD.updateStat('play-feedback-equity', Math.round(equity * 100) + '%');
+
+      var potOdds = hand.pot > 0 ? Math.round((1 / (hand.pot + 1)) * 100) : 0;
+      GTO.UI.HUD.updateStat('play-feedback-pot-odds', potOdds + '%');
+    } catch (e) {}
+  },
+
+  _preparePlayRangeForStreet: function(street, hand) {
+    // Called when a new street is dealt — show board texture, reset feedback
+    var rangeEmpty = document.getElementById('play-range-empty');
+    if (rangeEmpty) rangeEmpty.classList.add('hidden');
+
+    var tag = document.getElementById('play-range-tag');
+    if (tag) tag.textContent = street.toUpperCase();
+
+    // Show board area with current texture
+    var matrixArea = document.getElementById('play-matrix-area');
+    var boardArea = document.getElementById('play-board-area');
+    if (matrixArea) matrixArea.classList.add('hidden');
+    if (boardArea) boardArea.classList.remove('hidden');
+
+    // Clear summary bar
+    var summaryBar = document.getElementById('play-summary-bar');
+    if (summaryBar) summaryBar.innerHTML = '';
+
+    try {
+      GTO.UI.BoardDisplay.renderBoard('play-range-board-display', hand.board);
+
+      var tex = GTO.Data.BoardCategories.classify(hand.board);
+      var texLabel = GTO.Data.BoardTextureLabels ? GTO.Data.BoardTextureLabels[tex] : tex;
+      GTO.UI.HUD.updateStat('play-texture-type', texLabel || tex);
+
+      var isWet = tex.indexOf('wet') >= 0 || tex === 'highly_connected';
+      var isMonotone = tex === 'monotone';
+      var isTwotone = tex.indexOf('twotone') >= 0;
+
+      GTO.UI.HUD.updateStat('play-texture-wetness', isWet ? 'Wet' : 'Dry');
+      GTO.UI.HUD.updateStat('play-texture-connect', tex === 'highly_connected' ? 'High' : (isWet ? 'Medium' : 'Low'));
+      GTO.UI.HUD.updateStat('play-texture-flush', isMonotone ? 'Complete' : (isTwotone ? 'Draw Possible' : 'None'));
+
+      if (hand.board && hand.board.length > 0) {
+        var boardRanks = hand.board.map(function(c) { return GTO.Data.RANK_VALUES[c.rank]; });
+        var highRank = Math.max.apply(null, boardRanks);
+        var rankNames = {14:'A',13:'K',12:'Q',11:'J',10:'T',9:'9',8:'8',7:'7',6:'6',5:'5',4:'4',3:'3',2:'2'};
+        GTO.UI.HUD.updateStat('play-texture-high', rankNames[highRank] || '--');
+      }
+
+      // Hand strength
+      var strength = GTO.Engine.HandEvaluator.classify(hand.cards, hand.board);
+      var strengthLabel = GTO.Data.HandStrengthLabels ? GTO.Data.HandStrengthLabels[strength] : strength;
+      GTO.UI.HUD.updateStat('play-hand-strength', strengthLabel || strength);
+
+      // Range advantage
+      var positions = GTO.Data.POSITIONS;
+      var posIdx = positions.indexOf(hand.heroPosition);
+      var isIP = posIdx >= 3;
+      var ipAdv = isIP ? 55 : 45;
+      var ipBar = document.getElementById('play-range-adv-ip');
+      var oopBar = document.getElementById('play-range-adv-oop');
+      var ipVal = document.getElementById('play-range-adv-ip-val');
+      var oopVal = document.getElementById('play-range-adv-oop-val');
+      if (ipBar) ipBar.style.width = ipAdv + '%';
+      if (oopBar) oopBar.style.width = (100 - ipAdv) + '%';
+      if (ipVal) ipVal.textContent = ipAdv + '%';
+      if (oopVal) oopVal.textContent = (100 - ipAdv) + '%';
+    } catch (e) {}
+
+    // Reset feedback to awaiting state
+    var feedbackEmpty = document.getElementById('play-feedback-empty');
+    var feedbackContent = document.getElementById('play-feedback-content');
+    if (feedbackEmpty) {
+      feedbackEmpty.classList.remove('hidden');
+      var emptyText = feedbackEmpty.querySelector('.empty-state-text');
+      if (emptyText) emptyText.textContent = 'Choose your action for ' + street.toUpperCase();
+      var emptyHint = feedbackEmpty.querySelector('.empty-state-hint');
+      if (emptyHint) emptyHint.textContent = 'Press X / 1 / 2 / 3 to submit';
+    }
+    if (feedbackContent) feedbackContent.classList.add('hidden');
   },
 
   _setupPlans: function() {
@@ -1231,8 +1452,24 @@ GTO.App = {
           var mode = this.getAttribute('data-value');
           var preflopFilters = document.getElementById('explore-preflop-filters');
           var pfFilters = document.getElementById('explore-pushfold-filters');
+          var solverFilters = document.getElementById('explore-solver-filters');
+          var preflopStats = document.getElementById('explore-preflop-stats');
+          var solverStats = document.getElementById('explore-solver-stats');
+          var matrixSection = document.querySelector('.explore-matrix-section');
+          var detailSection = document.querySelector('.explore-detail-section');
+          var solverResults = document.getElementById('explore-solver-results');
           if (preflopFilters) preflopFilters.classList.toggle('hidden', mode !== 'preflop');
           if (pfFilters) pfFilters.classList.toggle('hidden', mode !== 'pushfold');
+          if (solverFilters) solverFilters.classList.toggle('hidden', mode !== 'solver');
+          if (preflopStats) preflopStats.style.display = mode === 'solver' ? 'none' : '';
+          if (solverStats) solverStats.classList.toggle('hidden', mode !== 'solver');
+          // Show/hide matrix vs solver results
+          if (matrixSection) matrixSection.style.display = mode === 'solver' ? 'none' : '';
+          if (detailSection) detailSection.style.display = mode === 'solver' ? 'none' : '';
+          if (solverResults) {
+            solverResults.classList.toggle('hidden', mode !== 'solver');
+            solverResults.style.display = mode === 'solver' ? 'flex' : 'none';
+          }
         }
 
         // Show/hide villain row for vs_raise/vs_3bet
@@ -1258,6 +1495,42 @@ GTO.App = {
 
     // Initial render
     this._updateExploreMatrix();
+
+    // ── Solver event wiring ──
+    var solveBtn = document.getElementById('solver-run-btn');
+    if (solveBtn) {
+      solveBtn.addEventListener('click', function() { self._runSolver(); });
+    }
+
+    var randomBoardBtn = document.getElementById('solver-random-board');
+    if (randomBoardBtn) {
+      randomBoardBtn.addEventListener('click', function() {
+        var RANKS = '23456789TJQKA';
+        var SUITS = 'cdhs';
+        var deck = [];
+        for (var r = 0; r < 13; r++) {
+          for (var s = 0; s < 4; s++) {
+            deck.push(RANKS[r] + SUITS[s]);
+          }
+        }
+        // Shuffle and pick 3
+        for (var i = deck.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var tmp = deck[i]; deck[i] = deck[j]; deck[j] = tmp;
+        }
+        var boardInput = document.getElementById('solver-board');
+        if (boardInput) boardInput.value = deck[0] + ' ' + deck[1] + ' ' + deck[2];
+      });
+    }
+
+    // Solver bet preset toggle
+    document.querySelectorAll('#solver-bet-preset .toggle-option').forEach(function(opt) {
+      opt.addEventListener('click', function() {
+        var group = this.parentElement;
+        group.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
+        this.classList.add('active');
+      });
+    });
   },
 
   _updateExploreMatrix: function() {
@@ -1269,6 +1542,9 @@ GTO.App = {
 
     var modeEl = document.querySelector('#explore-mode .toggle-option.active');
     var mode = modeEl ? modeEl.getAttribute('data-value') : 'preflop';
+
+    // Solver mode doesn't use the preflop matrix
+    if (mode === 'solver') return;
 
     if (mode === 'preflop') {
       var formatEl = document.querySelector('#explore-format .toggle-option.active');
@@ -1282,10 +1558,11 @@ GTO.App = {
       var actionCtx = actionEl ? actionEl.getAttribute('data-value') : 'rfi';
 
       var positionKey = position;
-      if (actionCtx === 'vs_raise' || actionCtx === 'vs_3bet') {
+      if (actionCtx === 'vs_raise' || actionCtx === 'vs_3bet' || actionCtx === 'vs_4bet') {
         var villainEl = document.querySelector('#explore-villain .toggle-option.active');
         var villain = villainEl ? villainEl.getAttribute('data-value') : 'UTG';
-        positionKey = actionCtx === 'vs_raise' ? villain + '_' + position : position + '_' + villain;
+        // vs_raise: villain_hero, vs_3bet: hero_villain, vs_4bet: villain_hero
+        positionKey = actionCtx === 'vs_3bet' ? position + '_' + villain : villain + '_' + position;
       }
 
       // Build range data for the scenario
@@ -1345,6 +1622,9 @@ GTO.App = {
       if (pctEl) pctEl.textContent = (combos / 1326 * 100).toFixed(1) + '%';
     }
 
+    // Update summary bar
+    GTO.UI.HandMatrix.updateSummaryBar('explore-summary-bar', this._exploreRangeData);
+
     // If an active hand was set (from drill/play "View Range"), auto-show its detail
     if (this._exploreActiveHand) {
       this._showExploreHandDetail(this._exploreActiveHand);
@@ -1390,9 +1670,447 @@ GTO.App = {
       else if (GTO.Data.isSuited(hand)) typeEl.textContent = 'Suited';
       else typeEl.textContent = 'Offsuit';
     }
+
+    // Render combo grid
+    this._renderComboGrid(hand);
+  },
+
+  _renderComboGrid: function(hand) {
+    var container = document.getElementById('explore-combo-grid');
+    if (!container) return;
+
+    var rangeData = this._exploreRangeData || {};
+    var freqs = rangeData[hand] || { fold: 1, call: 0, raise: 0 };
+
+    var SUITS = ['s', 'h', 'd', 'c'];
+    var SYM = { s: '\u2660', h: '\u2665', d: '\u2666', c: '\u2663' };
+    var SCOL = { s: 'var(--text-primary)', h: '#ff433d', d: '#0068ff', c: '#4af6c3' };
+
+    var combos = [];
+    if (GTO.Data.isPair(hand)) {
+      var r = hand[0];
+      for (var i = 0; i < 4; i++)
+        for (var j = i + 1; j < 4; j++)
+          combos.push([r, SUITS[i], r, SUITS[j]]);
+    } else if (GTO.Data.isSuited(hand)) {
+      var r1 = hand[0], r2 = hand[1];
+      for (var i = 0; i < 4; i++)
+        combos.push([r1, SUITS[i], r2, SUITS[i]]);
+    } else {
+      var r1 = hand[0], r2 = hand[1];
+      for (var i = 0; i < 4; i++)
+        for (var j = 0; j < 4; j++)
+          if (i !== j) combos.push([r1, SUITS[i], r2, SUITS[j]]);
+    }
+
+    var r = freqs.raise || 0, c = freqs.call || 0, f = freqs.fold || 0;
+    var total = r + c + f || 1;
+    var rP = (r / total * 100).toFixed(1);
+    var cP = (c / total * 100).toFixed(1);
+    var rcP = (parseFloat(rP) + parseFloat(cP)).toFixed(1);
+    var grad = 'linear-gradient(to right, rgba(74,246,195,0.5) 0% ' + rP + '%, rgba(0,104,255,0.5) ' + rP + '% ' + rcP + '%, #1a1a1a ' + rcP + '% 100%)';
+
+    var html = '';
+    combos.forEach(function(cb) {
+      html += '<div class="combo-chip">' +
+        '<span class="combo-chip-cards">' +
+          '<span style="color:' + SCOL[cb[1]] + '">' + cb[0] + SYM[cb[1]] + '</span>' +
+          '<span style="color:' + SCOL[cb[3]] + '">' + cb[2] + SYM[cb[3]] + '</span>' +
+        '</span>' +
+        '<div class="combo-mini-bar" style="background:' + grad + '"></div>' +
+      '</div>';
+    });
+
+    container.innerHTML = html;
   },
 
   _exploreRangeData: null,
+  _solverResults: null,
+
+  // ═══════════════════ SOLVER ═══════════════════
+  _runSolver: function() {
+    var self = this;
+    var boardStr = (document.getElementById('solver-board').value || '').trim();
+    var oopRange = (document.getElementById('solver-oop-range').value || '').trim();
+    var ipRange = (document.getElementById('solver-ip-range').value || '').trim();
+    var pot = parseInt(document.getElementById('solver-pot').value) || 100;
+    var stack = parseInt(document.getElementById('solver-stack').value) || 450;
+
+    // Validate inputs
+    if (!boardStr) { GTO.UI.Toast.error('Enter a board (e.g. Ah 7d 2c)'); return; }
+    if (!oopRange) { GTO.UI.Toast.error('Enter OOP range'); return; }
+    if (!ipRange) { GTO.UI.Toast.error('Enter IP range'); return; }
+
+    var boardCards = boardStr.split(/[\s,]+/).filter(Boolean);
+    if (boardCards.length < 3 || boardCards.length > 5) {
+      GTO.UI.Toast.error('Board must have 3-5 cards');
+      return;
+    }
+
+    // Validate card format
+    var validCard = /^[2-9TJQKA][cdhs]$/;
+    for (var i = 0; i < boardCards.length; i++) {
+      if (!validCard.test(boardCards[i])) {
+        GTO.UI.Toast.error('Invalid card: ' + boardCards[i] + ' (use e.g. Ah, Td, 2c)');
+        return;
+      }
+    }
+
+    // Get bet sizing preset
+    var presetEl = document.querySelector('#solver-bet-preset .toggle-option.active');
+    var preset = presetEl ? presetEl.getAttribute('data-value') : 'standard';
+    var betConfig = this._getSolverBetConfig(preset);
+
+    // Show progress
+    var progressEl = document.getElementById('solver-progress');
+    var progressFill = document.getElementById('solver-progress-fill');
+    var progressText = document.getElementById('solver-progress-text');
+    var solveBtn = document.getElementById('solver-run-btn');
+    if (progressEl) progressEl.classList.remove('hidden');
+    if (progressFill) progressFill.style.width = '0%';
+    if (progressText) progressText.textContent = 'Initializing solver...';
+    if (solveBtn) { solveBtn.disabled = true; solveBtn.textContent = 'SOLVING...'; }
+
+    // Initialize solver if needed, then solve
+    var initPromise = GTO.Solver.isAvailable() ? Promise.resolve() : GTO.Solver.init();
+
+    initPromise.then(function() {
+      if (progressText) progressText.textContent = 'Setting up game tree...';
+
+      return GTO.Solver.solve({
+        oopRange: oopRange,
+        ipRange: ipRange,
+        board: boardCards,
+        startingPot: pot,
+        effectiveStack: stack,
+        oopFlopBet: betConfig.oopFlopBet,
+        oopFlopRaise: betConfig.oopFlopRaise,
+        oopTurnBet: betConfig.oopTurnBet,
+        oopTurnRaise: betConfig.oopTurnRaise,
+        oopRiverBet: betConfig.oopRiverBet,
+        oopRiverRaise: betConfig.oopRiverRaise,
+        ipFlopBet: betConfig.ipFlopBet,
+        ipFlopRaise: betConfig.ipFlopRaise,
+        ipTurnBet: betConfig.ipTurnBet,
+        ipTurnRaise: betConfig.ipTurnRaise,
+        ipRiverBet: betConfig.ipRiverBet,
+        ipRiverRaise: betConfig.ipRiverRaise,
+        maxIterations: 200,
+        targetExploitability: 0.5,
+        onProgress: function(msg) {
+          var pct = msg.pctDone || Math.round((msg.iteration / 200) * 100);
+          if (progressFill) progressFill.style.width = Math.min(pct, 100) + '%';
+          if (progressText) progressText.textContent = 'Iteration ' + msg.iteration + ' — Exploitability: ' + (msg.exploitability || 0).toFixed(2);
+        }
+      });
+    }).then(function(results) {
+      self._solverResults = results;
+      if (progressFill) progressFill.style.width = '100%';
+      if (progressText) progressText.textContent = 'Done!';
+      setTimeout(function() {
+        if (progressEl) progressEl.classList.add('hidden');
+      }, 1500);
+      if (solveBtn) { solveBtn.disabled = false; solveBtn.textContent = 'SOLVE'; }
+      self._renderSolverResults(results, boardCards, pot);
+    }).catch(function(err) {
+      console.error('[Solver] Error:', err);
+      if (progressText) progressText.textContent = 'Error: ' + (err.message || err);
+      if (solveBtn) { solveBtn.disabled = false; solveBtn.textContent = 'SOLVE'; }
+      GTO.UI.Toast.error('Solver error: ' + (err.message || err));
+    });
+  },
+
+  _getSolverBetConfig: function(preset) {
+    if (preset === 'simple') {
+      return {
+        oopFlopBet: '33%', oopFlopRaise: '60%',
+        oopTurnBet: '67%', oopTurnRaise: '60%',
+        oopRiverBet: '67%', oopRiverRaise: '60%',
+        ipFlopBet: '33%', ipFlopRaise: '60%',
+        ipTurnBet: '67%', ipTurnRaise: '60%',
+        ipRiverBet: '67%', ipRiverRaise: '60%'
+      };
+    }
+    if (preset === 'complex') {
+      return {
+        oopFlopBet: '25%,33%,67%,100%', oopFlopRaise: '50%,100%',
+        oopTurnBet: '33%,67%,100%,150%', oopTurnRaise: '50%,100%',
+        oopRiverBet: '33%,67%,100%,150%,200%', oopRiverRaise: '50%,100%',
+        ipFlopBet: '25%,33%,67%,100%', ipFlopRaise: '50%,100%',
+        ipTurnBet: '33%,67%,100%,150%', ipTurnRaise: '50%,100%',
+        ipRiverBet: '33%,67%,100%,150%,200%', ipRiverRaise: '50%,100%'
+      };
+    }
+    // Standard
+    return {
+      oopFlopBet: '33%,67%', oopFlopRaise: '60%',
+      oopTurnBet: '33%,67%', oopTurnRaise: '60%',
+      oopRiverBet: '33%,67%,100%', oopRiverRaise: '60%',
+      ipFlopBet: '33%,67%', ipFlopRaise: '60%',
+      ipTurnBet: '33%,67%', ipTurnRaise: '60%',
+      ipRiverBet: '33%,67%,100%', ipRiverRaise: '60%'
+    };
+  },
+
+  _renderSolverResults: function(results, boardCards, pot) {
+    var emptyEl = document.getElementById('solver-empty');
+    var outputEl = document.getElementById('solver-output');
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (outputEl) outputEl.classList.remove('hidden');
+
+    // Update label
+    var label = document.getElementById('solver-results-label');
+    if (label) label.textContent = boardCards.join(' ').toUpperCase();
+
+    // Board display
+    var boardDisplay = document.getElementById('solver-board-display');
+    if (boardDisplay && GTO.UI.BoardDisplay) {
+      GTO.UI.BoardDisplay.renderBoard('solver-board-display', boardCards);
+    } else if (boardDisplay) {
+      boardDisplay.innerHTML = boardCards.map(function(c) {
+        return '<span style="font-size:18px; font-weight:700; letter-spacing:0.05em;">' + c + '</span>';
+      }).join('');
+    }
+
+    // Parse the packed results array
+    var data = results.results || [];
+    var actions = (results.actions || '').split('/');
+    var player = results.player || 'oop';
+    var numActions = results.numActions || actions.length;
+    var oopCards = results.oopCards || [];
+    var ipCards = results.ipCards || [];
+
+    var playerLabel = document.getElementById('solver-player-label');
+    if (playerLabel) playerLabel.textContent = player.toUpperCase();
+
+    // Update solver stats
+    var solveInfo = results.solveInfo || {};
+    var iterEl = document.getElementById('solver-stat-iterations');
+    var exploitEl = document.getElementById('solver-stat-exploit');
+    if (iterEl) iterEl.textContent = solveInfo.iterations || '--';
+    if (exploitEl) exploitEl.textContent = (solveInfo.exploitability || 0).toFixed(2) + '%';
+
+    // Render action buttons
+    var actionsDiv = document.getElementById('solver-actions');
+    if (actionsDiv) {
+      var html = '';
+      actions.forEach(function(a) {
+        var parts = a.split(':');
+        var name = parts[0] || a;
+        var amount = parts[1] ? ' ' + parts[1] : '';
+        html += '<button class="solver-action-btn" data-action="' + a + '">' + name + amount + '</button>';
+      });
+      actionsDiv.innerHTML = html;
+    }
+
+    // Parse strategy from packed results
+    // The packed format from lib.rs:
+    //   [0] = oopPot, [1] = ipPot, [2] = isEmptyFlag
+    //   Then: oopWeights(N), ipWeights(N), oopNormWeights(N), ipNormWeights(N)
+    //   Then: oopEquity(N), ipEquity(N), oopEV(N), ipEV(N), oopEQR(N), ipEQR(N)
+    //   Then: strategy(numActions * N), evDetail(numActions * N) [if not empty/terminal]
+    // N = number of combos for the active player
+
+    var isCurrentOop = player === 'oop';
+    var cards = isCurrentOop ? oopCards : ipCards;
+    var numCombos = cards.length;
+
+    if (data.length < 3 || numCombos === 0 || actions[0] === 'terminal' || actions[0] === 'chance') {
+      // Terminal or chance node — show minimal info
+      this._renderSolverStrategyBars([], actions, numCombos);
+      this._renderSolverHandTable([], [], cards, actions, numActions, data, pot);
+      return;
+    }
+
+    var isEmptyFlag = data[2];
+    var offset = 3;
+    // Skip: oopWeights, ipWeights
+    var oopN = oopCards.length;
+    var ipN = ipCards.length;
+    offset += oopN + ipN; // raw weights
+    offset += oopN + ipN; // normalized weights
+
+    if (isEmptyFlag === 0) {
+      offset += oopN + ipN; // equity
+      offset += oopN + ipN; // ev
+      offset += oopN + ipN; // eqr
+    }
+
+    // Strategy starts at offset, length = numActions * numCombos
+    var strategy = [];
+    if (data.length >= offset + numActions * numCombos) {
+      for (var a = 0; a < numActions; a++) {
+        var actionStrat = [];
+        for (var c = 0; c < numCombos; c++) {
+          actionStrat.push(data[offset + a * numCombos + c]);
+        }
+        strategy.push(actionStrat);
+      }
+    }
+
+    // Get weights for the active player
+    var weightOffset = 3 + (isCurrentOop ? 0 : oopN);
+    var weights = data.slice(weightOffset, weightOffset + numCombos);
+
+    // Get equity/EV for active player
+    var equityArr = [], evArr = [];
+    if (isEmptyFlag === 0) {
+      var eqStart = 3 + oopN + ipN + oopN + ipN + (isCurrentOop ? 0 : oopN);
+      equityArr = data.slice(eqStart, eqStart + numCombos);
+      var evStart = eqStart + oopN + ipN;
+      evArr = data.slice(evStart, evStart + numCombos);
+    }
+
+    // Calculate aggregate strategy (weighted average across combos)
+    var aggStrategy = [];
+    var totalWeight = 0;
+    for (var c = 0; c < numCombos; c++) totalWeight += (weights[c] || 0);
+
+    for (var a = 0; a < numActions; a++) {
+      var weightedSum = 0;
+      for (var c = 0; c < numCombos; c++) {
+        weightedSum += (strategy[a] ? strategy[a][c] : 0) * (weights[c] || 0);
+      }
+      aggStrategy.push(totalWeight > 0 ? weightedSum / totalWeight : 0);
+    }
+
+    // Compute aggregate EV
+    if (isEmptyFlag === 0 && totalWeight > 0) {
+      var oopEvTotal = 0, ipEvTotal = 0;
+      var oopWtStart = 3;
+      var ipWtStart = 3 + oopN;
+      var oopEvStart = 3 + oopN + ipN + oopN + ipN + oopN + ipN;
+      var ipEvStart = oopEvStart + oopN;
+      for (var c = 0; c < oopN; c++) {
+        oopEvTotal += (data[oopEvStart + c] || 0) * (data[oopWtStart + c] || 0);
+      }
+      var oopTotalWt = 0;
+      for (var c = 0; c < oopN; c++) oopTotalWt += (data[oopWtStart + c] || 0);
+      var ipTotalWt = 0;
+      for (var c = 0; c < ipN; c++) ipTotalWt += (data[ipWtStart + c] || 0);
+      for (var c = 0; c < ipN; c++) {
+        ipEvTotal += (data[ipEvStart + c] || 0) * (data[ipWtStart + c] || 0);
+      }
+
+      var oopEvEl = document.getElementById('solver-stat-oop-ev');
+      var ipEvEl = document.getElementById('solver-stat-ip-ev');
+      if (oopEvEl) oopEvEl.textContent = oopTotalWt > 0 ? (oopEvTotal / oopTotalWt).toFixed(1) : '--';
+      if (ipEvEl) ipEvEl.textContent = ipTotalWt > 0 ? (ipEvTotal / ipTotalWt).toFixed(1) : '--';
+    }
+
+    this._renderSolverStrategyBars(aggStrategy, actions, numCombos);
+    this._renderSolverHandTable(strategy, weights, cards, actions, numActions, data, pot, equityArr, evArr);
+  },
+
+  _renderSolverStrategyBars: function(aggStrategy, actions, numCombos) {
+    var container = document.getElementById('solver-strategy-bars');
+    if (!container) return;
+
+    var ACTION_COLORS = {
+      'Fold': 'rgba(255,255,255,0.15)', 'Check': 'rgba(0,104,255,0.5)',
+      'Call': 'rgba(0,104,255,0.5)', 'Bet': 'rgba(74,246,195,0.5)',
+      'Raise': 'rgba(255,140,0,0.5)', 'Allin': 'rgba(255,67,61,0.5)'
+    };
+
+    var html = '';
+    for (var a = 0; a < actions.length; a++) {
+      var parts = actions[a].split(':');
+      var name = parts[0] || actions[a];
+      var amount = parts[1] ? ' ' + parts[1] : '';
+      var pct = aggStrategy[a] ? (aggStrategy[a] * 100).toFixed(1) : '0.0';
+      var color = ACTION_COLORS[name] || 'rgba(255,255,255,0.2)';
+
+      html += '<div class="solver-freq-row">' +
+        '<span class="solver-freq-label">' + name + amount + '</span>' +
+        '<div class="solver-freq-track">' +
+          '<div class="solver-freq-fill" style="width:' + pct + '%; background:' + color + '"></div>' +
+        '</div>' +
+        '<span class="solver-freq-value">' + pct + '%</span>' +
+      '</div>';
+    }
+    container.innerHTML = html;
+  },
+
+  _renderSolverHandTable: function(strategy, weights, cards, actions, numActions, data, pot, equityArr, evArr) {
+    var tbody = document.getElementById('solver-hand-tbody');
+    if (!tbody) return;
+
+    var RANKS = '23456789TJQKA';
+    var SUITS = ['c', 'd', 'h', 's'];
+    var SYM = { c: '\u2663', d: '\u2666', h: '\u2665', s: '\u2660' };
+    var SCOL = { c: '#4af6c3', d: '#0068ff', h: '#ff433d', s: '#fff' };
+
+    var ACTION_COLORS = {
+      'Fold': 'rgba(255,255,255,0.15)', 'Check': 'rgba(0,104,255,0.5)',
+      'Call': 'rgba(0,104,255,0.5)', 'Bet': 'rgba(74,246,195,0.5)',
+      'Raise': 'rgba(255,140,0,0.5)', 'Allin': 'rgba(255,67,61,0.5)'
+    };
+
+    // Build sortable hand entries
+    var entries = [];
+    for (var i = 0; i < cards.length; i++) {
+      var w = weights[i] || 0;
+      if (w < 0.001) continue;
+
+      var cardPacked = cards[i];
+      var c1 = cardPacked & 0xFF;
+      var c2 = (cardPacked >> 8) & 0xFF;
+      var r1 = Math.floor(c1 / 4), s1 = c1 % 4;
+      var r2 = Math.floor(c2 / 4), s2 = c2 % 4;
+
+      var name = '<span style="color:' + SCOL[SUITS[s1]] + '">' + RANKS[r1] + SYM[SUITS[s1]] + '</span>' +
+                 '<span style="color:' + SCOL[SUITS[s2]] + '">' + RANKS[r2] + SYM[SUITS[s2]] + '</span>';
+
+      var strat = [];
+      for (var a = 0; a < numActions; a++) {
+        strat.push(strategy[a] ? strategy[a][i] : 0);
+      }
+
+      var eq = equityArr && equityArr[i] !== undefined ? equityArr[i] : null;
+      var ev = evArr && evArr[i] !== undefined ? evArr[i] : null;
+
+      entries.push({ name: name, weight: w, equity: eq, ev: ev, strat: strat, sortRank: r1 * 100 + r2 });
+    }
+
+    // Sort by descending rank
+    entries.sort(function(a, b) { return b.sortRank - a.sortRank; });
+
+    // Limit display to top 50 hands
+    var maxShow = Math.min(entries.length, 50);
+    var html = '';
+    for (var i = 0; i < maxShow; i++) {
+      var e = entries[i];
+      var eqStr = e.equity !== null ? (e.equity * 100).toFixed(1) + '%' : '--';
+      var evStr = e.ev !== null ? e.ev.toFixed(1) : '--';
+
+      // Strategy mini-bar
+      var barHtml = '<div class="solver-strat-bar">';
+      for (var a = 0; a < actions.length; a++) {
+        var parts = actions[a].split(':');
+        var name = parts[0];
+        var color = ACTION_COLORS[name] || 'rgba(255,255,255,0.2)';
+        var pct = (e.strat[a] * 100).toFixed(1);
+        if (pct > 0.5) {
+          barHtml += '<div style="width:' + pct + '%; background:' + color + '" title="' + name + ' ' + pct + '%"></div>';
+        }
+      }
+      barHtml += '</div>';
+
+      html += '<tr>' +
+        '<td style="font-weight:600;">' + e.name + '</td>' +
+        '<td>' + e.weight.toFixed(2) + '</td>' +
+        '<td>' + eqStr + '</td>' +
+        '<td>' + evStr + '</td>' +
+        '<td>' + barHtml + '</td>' +
+      '</tr>';
+    }
+
+    if (entries.length > maxShow) {
+      html += '<tr><td colspan="5" style="text-align:center; color:var(--text-dim); font-size:9px; padding:8px;">... and ' + (entries.length - maxShow) + ' more hands</td></tr>';
+    }
+
+    tbody.innerHTML = html;
+  },
 
   // ═══════════════════ DRILL TYPE SELECTOR ═══════════════════
   _setupDrillTypeSelector: function() {
@@ -1413,6 +2131,14 @@ GTO.App = {
 
   _switchDrillType: function(type) {
     this._activeDrillType = type;
+
+    // End any active drill session to prevent ghost callbacks
+    if (GTO.Engine.DrillEngine.isActive()) {
+      GTO.Engine.DrillEngine.endSession();
+    }
+
+    // Reset keyboard context to navigation
+    GTO.Keyboard.setContext('navigation');
 
     // Update tag
     var tag = document.getElementById('drill-type-tag');
@@ -1438,9 +2164,10 @@ GTO.App = {
     if (matrixId) { var el = document.getElementById(matrixId); if (el) el.classList.remove('hidden'); }
     if (feedbackId) { var el = document.getElementById(feedbackId); if (el) el.classList.remove('hidden'); }
 
-    // Hide session summary
+    // Hide session summary and progress
     var summary = document.getElementById('drill-session-summary');
     if (summary) summary.classList.add('hidden');
+    this._hideDrillProgress();
   },
 
   // ═══════════════════ SESSION SUMMARY ═══════════════════

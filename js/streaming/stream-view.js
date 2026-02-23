@@ -341,18 +341,35 @@ GTO.Streaming.StreamView = {
     var container = document.getElementById('stream-player-container');
     if (!container) return;
 
-    var iframeSrc;
     if (platform === 'youtube') {
-      iframeSrc = 'https://www.youtube.com/embed/live_stream?channel=' +
-        encodeURIComponent(channel) + '&autoplay=1&mute=1';
+      // YouTube doesn't support live_stream embeds by channel name.
+      // Show a styled channel card with link to their YouTube live page.
+      var handle = channel.charAt(0) === '@' ? channel : '@' + channel;
+      var liveUrl = 'https://www.youtube.com/' + encodeURIComponent(handle) + '/live';
+      var channelUrl = 'https://www.youtube.com/' + encodeURIComponent(handle);
+      container.innerHTML =
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'background:#0a0a0a;gap:16px;text-align:center;padding:24px;">' +
+        '<div style="font-size:36px;opacity:0.4;">&#9654;</div>' +
+        '<div style="font-size:16px;font-weight:700;color:#fff;letter-spacing:0.05em;">' + channel.toUpperCase() + '</div>' +
+        '<div style="font-size:11px;color:#888;max-width:280px;">YouTube channels open in a new tab. Click below to watch live or browse their content.</div>' +
+        '<div style="display:flex;gap:8px;margin-top:4px;">' +
+        '<a href="' + liveUrl + '" target="_blank" rel="noopener" ' +
+        'style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#ff433d;color:#fff;' +
+        'font-size:12px;font-weight:700;letter-spacing:0.08em;text-decoration:none;border-radius:2px;">' +
+        '&#9654; WATCH LIVE</a>' +
+        '<a href="' + channelUrl + '" target="_blank" rel="noopener" ' +
+        'style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#222;color:#ccc;' +
+        'font-size:12px;font-weight:700;letter-spacing:0.08em;text-decoration:none;border-radius:2px;border:1px solid #333;">' +
+        'CHANNEL</a>' +
+        '</div></div>';
     } else {
       var parent = window.location.hostname || 'localhost';
-      iframeSrc = 'https://player.twitch.tv/?channel=' +
+      var iframeSrc = 'https://player.twitch.tv/?channel=' +
         encodeURIComponent(channel) + '&parent=' + encodeURIComponent(parent) +
         '&muted=true';
+      container.innerHTML = '<iframe src="' + iframeSrc + '" allowfullscreen allow="autoplay; encrypted-media"></iframe>';
     }
-
-    container.innerHTML = '<iframe src="' + iframeSrc + '" allowfullscreen allow="autoplay; encrypted-media"></iframe>';
 
     var tag = document.getElementById('stream-channel-tag');
     var platformLabel = platform === 'youtube' ? 'YT' : 'TTV';

@@ -39,6 +39,14 @@ GTO.Engine.ScenarioGenerator = {
       if (laterPositions.length === 0) laterPositions = ['BB'];
       villainPosition = GTO.Utils.randPick(laterPositions);
       positionKey = position + '_' + villainPosition;
+    } else if (actionContext === 'vs_4bet') {
+      // Villain opened from earlier position, hero 3bet, villain 4bets
+      // Key format: opener_hero (same as vs_raise)
+      var posIdx = GTO.Data.POSITIONS.indexOf(position);
+      var earlierPositions = GTO.Data.POSITIONS.slice(0, posIdx);
+      if (earlierPositions.length === 0) earlierPositions = ['UTG'];
+      villainPosition = GTO.Utils.randPick(earlierPositions);
+      positionKey = villainPosition + '_' + position;
     }
 
     var cards = GTO.Engine.Deck.handToCards(hand);
@@ -63,7 +71,15 @@ GTO.Engine.ScenarioGenerator = {
     var spotTypes = config.spotTypes || ['IP_cbet_flop'];
     var spotType = GTO.Utils.randPick(spotTypes);
     var isIP = spotType.indexOf('IP_') === 0;
-    var street = spotType.indexOf('flop') >= 0 ? 'flop' : (spotType.indexOf('turn') >= 0 ? 'turn' : 'river');
+    // Detect street: cbet spots are always flop, otherwise check for turn/river keywords
+    var street;
+    if (spotType.indexOf('flop') >= 0 || spotType.indexOf('cbet') >= 0) {
+      street = 'flop';
+    } else if (spotType.indexOf('turn') >= 0) {
+      street = 'turn';
+    } else {
+      street = 'river';
+    }
 
     // Pick a random board texture
     var texture = GTO.Utils.randPick(GTO.Data.BoardCategories.TEXTURES);

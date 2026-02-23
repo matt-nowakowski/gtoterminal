@@ -18,6 +18,7 @@ GTO.AI.PromptBuilder = {
     if (s.actionContext === 'rfi') parts.push('Action folds to hero.');
     else if (s.actionContext === 'vs_raise') parts.push(s.villainPosition + ' opens to 2.5bb.');
     else if (s.actionContext === 'vs_3bet') parts.push('Hero opened, ' + s.villainPosition + ' 3-bets to 8bb.');
+    else if (s.actionContext === 'vs_4bet') parts.push(s.villainPosition + ' opened, hero 3-bet, ' + s.villainPosition + ' 4-bets to 20bb.');
 
     parts.push('Hero chose to ' + action.toUpperCase() + '.');
     parts.push('GTO frequencies: Fold ' + Math.round((r.gtoFreqs.fold||0)*100) + '%, Call ' + Math.round((r.gtoFreqs.call||0)*100) + '%, Raise ' + Math.round((r.gtoFreqs.raise||0)*100) + '%.');
