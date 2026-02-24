@@ -6,11 +6,20 @@
 // Each spot is solved in a child process to get fresh WASM memory.
 //
 // Usage:
-//   node scripts/precompute-postflop.mjs                    # all spots
+//   node scripts/precompute-postflop.mjs                    # all spots (100bb)
+//   node scripts/precompute-postflop.mjs --depth 40bb       # 40bb stack depth
+//   node scripts/precompute-postflop.mjs --depth 25bb       # 25bb stack depth
+//   node scripts/precompute-postflop.mjs --depth 15bb       # 15bb stack depth
 //   node scripts/precompute-postflop.mjs --iterations 100   # fewer iterations
 //   node scripts/precompute-postflop.mjs --matchup SB_vs_BB # single matchup
 //   node scripts/precompute-postflop.mjs --board A72r       # single board
 //   node scripts/precompute-postflop.mjs --child <json>     # internal: run single solve
+//
+// Depth configs (pot normalized to 100 in all cases):
+//   100bb: stack=450  (SPR ~4.5, deep play, multiple streets)
+//   40bb:  stack=175  (SPR ~1.75, shallower, more turn/river jams)
+//   25bb:  stack=100  (SPR ~1.0, often 1-2 streets of play)
+//   15bb:  stack=50   (SPR ~0.5, flop jam-or-fold territory)
 //
 // Performance: ~2-5 min per spot (single-threaded WASM). Full batch (~115 spots)
 // takes several hours. Use --matchup/--board to solve selectively.
@@ -41,11 +50,56 @@ function hasArg(name) {
 
 const MAX_ITERATIONS = parseInt(getArg('iterations', '100'), 10);
 const TARGET_EXPLOIT_PCT = parseFloat(getArg('target', '1.0'));  // % of pot
-const STARTING_POT = 100;
-const EFFECTIVE_STACK = 450;
 const FILTER_MATCHUP = getArg('matchup', null);
 const FILTER_BOARD = getArg('board', null);
 const IS_CHILD = hasArg('child');
+
+// ---------------------------------------------------------------------------
+// Depth configuration — maps stack depth to solver pot/stack settings
+// ---------------------------------------------------------------------------
+const DEPTH_CONFIGS = {
+  '100bb': { pot: 100, stack: 450, betSizes: {
+    oopFlopBet: '33%', oopFlopRaise: '60%',
+    oopTurnBet: '67%', oopTurnRaise: '60%', oopTurnDonk: '',
+    oopRiverBet: '67%', oopRiverRaise: '60%', oopRiverDonk: '',
+    ipFlopBet: '33%', ipFlopRaise: '60%',
+    ipTurnBet: '67%', ipTurnRaise: '60%',
+    ipRiverBet: '67%', ipRiverRaise: '60%',
+  }},
+  '40bb': { pot: 100, stack: 175, betSizes: {
+    oopFlopBet: '33%', oopFlopRaise: '60%',
+    oopTurnBet: '50%', oopTurnRaise: '60%', oopTurnDonk: '',
+    oopRiverBet: '67%', oopRiverRaise: '60%', oopRiverDonk: '',
+    ipFlopBet: '33%', ipFlopRaise: '60%',
+    ipTurnBet: '50%', ipTurnRaise: '60%',
+    ipRiverBet: '67%', ipRiverRaise: '60%',
+  }},
+  '25bb': { pot: 100, stack: 100, betSizes: {
+    oopFlopBet: '33%', oopFlopRaise: '60%',
+    oopTurnBet: '50%', oopTurnRaise: '60%', oopTurnDonk: '',
+    oopRiverBet: '67%', oopRiverRaise: '60%', oopRiverDonk: '',
+    ipFlopBet: '33%', ipFlopRaise: '60%',
+    ipTurnBet: '50%', ipTurnRaise: '60%',
+    ipRiverBet: '67%', ipRiverRaise: '60%',
+  }},
+  '15bb': { pot: 100, stack: 50, betSizes: {
+    oopFlopBet: '50%', oopFlopRaise: '60%',
+    oopTurnBet: '67%', oopTurnRaise: '60%', oopTurnDonk: '',
+    oopRiverBet: '67%', oopRiverRaise: '60%', oopRiverDonk: '',
+    ipFlopBet: '50%', ipFlopRaise: '60%',
+    ipTurnBet: '67%', ipTurnRaise: '60%',
+    ipRiverBet: '67%', ipRiverRaise: '60%',
+  }},
+};
+
+const DEPTH = getArg('depth', '100bb');
+if (!DEPTH_CONFIGS[DEPTH]) {
+  console.error(`[precompute] Unknown depth: ${DEPTH}. Valid: ${Object.keys(DEPTH_CONFIGS).join(', ')}`);
+  process.exit(1);
+}
+const DEPTH_CFG = DEPTH_CONFIGS[DEPTH];
+const STARTING_POT = DEPTH_CFG.pot;
+const EFFECTIVE_STACK = DEPTH_CFG.stack;
 
 // ---------------------------------------------------------------------------
 // Card / Range utilities
@@ -341,26 +395,11 @@ const FLOP_BOARDS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Bet sizing: simplified for pre-computation (single bet size per street)
+// Bet sizing: from depth config (varies by stack depth)
 // This keeps the game tree small enough for practical batch solving.
 // The check/bet frequencies still provide actionable GTO insight.
 // ---------------------------------------------------------------------------
-const BET_SIZES = {
-  oopFlopBet:    '33%',
-  oopFlopRaise:  '60%',
-  oopTurnBet:    '67%',
-  oopTurnRaise:  '60%',
-  oopTurnDonk:   '',
-  oopRiverBet:   '67%',
-  oopRiverRaise: '60%',
-  oopRiverDonk:  '',
-  ipFlopBet:     '33%',
-  ipFlopRaise:   '60%',
-  ipTurnBet:     '67%',
-  ipTurnRaise:   '60%',
-  ipRiverBet:    '67%',
-  ipRiverRaise:  '60%',
-};
+const BET_SIZES = DEPTH_CFG.betSizes;
 
 // ---------------------------------------------------------------------------
 // Child process mode: solve a single spot
@@ -525,6 +564,7 @@ function solveInChildProcess(matchupKey, matchup, flopDef) {
       '--child', configStr,
       '--iterations', String(MAX_ITERATIONS),
       '--target', String(TARGET_EXPLOIT_PCT),
+      '--depth', DEPTH,
     ], {
       stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
       execArgv: ['--max-old-space-size=4096'],
@@ -567,12 +607,13 @@ function solveInChildProcess(matchupKey, matchup, flopDef) {
 
 async function main() {
   // Load existing solutions (incremental build)
-  const outputPath = join(PROJECT_ROOT, 'js', 'data', 'postflop-solutions.js');
+  const suffix = DEPTH === '100bb' ? '' : `-${DEPTH}`;
+  const outputPath = join(PROJECT_ROOT, 'js', 'data', `postflop-solutions${suffix}.js`);
   let existingSolutions = {};
   if (existsSync(outputPath)) {
     try {
       const content = readFileSync(outputPath, 'utf-8');
-      const match = content.match(/GTO\.Data\.PostflopSolutions\s*=\s*(\{[\s\S]*\});/);
+      const match = content.match(/GTO\.Data\.PostflopSolutions[A-Za-z0-9_]*\s*=\s*(\{[\s\S]*\});/);
       if (match) existingSolutions = JSON.parse(match[1]);
     } catch (e) {
       // Fresh start
@@ -592,9 +633,11 @@ async function main() {
   let errors = 0;
   let skipped = 0;
 
+  console.log(`[precompute] Depth: ${DEPTH} (pot=${STARTING_POT}, stack=${EFFECTIVE_STACK}, SPR=${(EFFECTIVE_STACK/STARTING_POT).toFixed(1)})`);
   console.log(`[precompute] Solving ${totalSpots} spots (${matchupKeys.length} matchups x ${boards.length} boards)`);
   console.log(`[precompute] Max iterations: ${MAX_ITERATIONS}, Target exploitability: ${TARGET_EXPLOIT_PCT}% pot`);
   console.log(`[precompute] Bet sizes: flop ${BET_SIZES.ipFlopBet}, turn ${BET_SIZES.ipTurnBet}, river ${BET_SIZES.ipRiverBet}, raises ${BET_SIZES.ipFlopRaise}`);
+  console.log(`[precompute] Output: postflop-solutions${suffix}.js`);
   console.log(`[precompute] Each spot runs in a child process with fresh WASM memory`);
   console.log('');
 
@@ -655,35 +698,38 @@ async function main() {
   console.log(`\n[precompute] Done. ${totalSpots - errors - skipped} solved, ${skipped} skipped, ${errors} errors.`);
   console.log(`[precompute] Output: ${outputPath}`);
 
-  // Write index
+  // Write index (per-depth)
   const indexData = {
+    depth: DEPTH,
     matchups: Object.keys(MATCHUPS),
     boards: FLOP_BOARDS.map(b => ({ label: b.label, board: b.board.join(''), texture: b.texture })),
     settings: { pot: STARTING_POT, stack: EFFECTIVE_STACK, maxIterations: MAX_ITERATIONS, targetExploitability: TARGET_EXPLOIT_PCT, betSizes: BET_SIZES },
     generated: new Date().toISOString()
   };
-  const indexPath = join(PROJECT_ROOT, 'js', 'data', 'postflop-solution-index.js');
-  const indexContent = `// Pre-computed Postflop Solutions — Index/Metadata\n// Auto-generated by scripts/precompute-postflop.mjs\n\nwindow.GTO = window.GTO || {};\nGTO.Data = GTO.Data || {};\n\nGTO.Data.PostflopSolutionIndex = ${JSON.stringify(indexData, null, 2)};\n`;
+  const indexPath = join(PROJECT_ROOT, 'js', 'data', `postflop-solution-index${suffix}.js`);
+  const varSuffix = DEPTH === '100bb' ? '' : '_' + DEPTH.replace('bb', 'BB');
+  const indexContent = `// Pre-computed Postflop Solutions — Index/Metadata (${DEPTH})\n// Auto-generated by scripts/precompute-postflop.mjs\n\nwindow.GTO = window.GTO || {};\nGTO.Data = GTO.Data || {};\n\nGTO.Data.PostflopSolutionIndex${varSuffix} = ${JSON.stringify(indexData, null, 2)};\n`;
   writeFileSync(indexPath, indexContent, 'utf-8');
   console.log(`[precompute] Index: ${indexPath}`);
 }
 
 function writeSolutions(solutions, outputPath, totalSpots, errors, skipped) {
+  const varSuffix = DEPTH === '100bb' ? '' : '_' + DEPTH.replace('bb', 'BB');
   const header = `// ============================================================================
-// Pre-computed Postflop Solutions
+// Pre-computed Postflop Solutions (${DEPTH})
 // ============================================================================
 // Auto-generated by scripts/precompute-postflop.mjs
 // Generated: ${new Date().toISOString()}
+// Depth: ${DEPTH} (pot=${STARTING_POT}, stack=${EFFECTIVE_STACK}, SPR=${(EFFECTIVE_STACK/STARTING_POT).toFixed(1)})
 // Spots: ${totalSpots - errors - skipped} solved
 // Settings: ${MAX_ITERATIONS} max iterations, ${TARGET_EXPLOIT_PCT}% target exploitability
-// Pot: ${STARTING_POT}, Stack: ${EFFECTIVE_STACK}
 // Bet sizes: flop ${BET_SIZES.ipFlopBet}, turn ${BET_SIZES.ipTurnBet}, river ${BET_SIZES.ipRiverBet}
 // ============================================================================
 
 window.GTO = window.GTO || {};
 GTO.Data = GTO.Data || {};
 
-GTO.Data.PostflopSolutions = `;
+GTO.Data.PostflopSolutions${varSuffix} = `;
 
   const json = JSON.stringify(solutions, null, 2);
   writeFileSync(outputPath, header + json + ';\n', 'utf-8');

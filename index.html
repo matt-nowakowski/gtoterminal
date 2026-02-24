@@ -48,9 +48,9 @@
             <div class="config-row" style="margin-bottom: 14px;">
               <label class="form-label">Mode</label>
               <div class="toggle-group" id="explore-mode">
-                <div class="toggle-option active" data-value="preflop">Preflop Ranges</div>
+                <div class="toggle-option active" data-value="preflop">Preflop</div>
                 <div class="toggle-option" data-value="pushfold">Push/Fold</div>
-                <div class="toggle-option" data-value="solver">Postflop Solver</div>
+                <div class="toggle-option" data-value="solver">Postflop</div>
               </div>
             </div>
             <div id="explore-preflop-filters">
@@ -66,7 +66,8 @@
                 <div class="toggle-group" id="explore-stack">
                   <div class="toggle-option active" data-value="100bb">100bb</div>
                   <div class="toggle-option" data-value="40bb">40bb</div>
-                  <div class="toggle-option" data-value="20bb">20bb</div>
+                  <div class="toggle-option" data-value="25bb">25bb</div>
+                  <div class="toggle-option" data-value="15bb">15bb</div>
                 </div>
               </div>
               <div class="config-row" style="margin-bottom: 10px;">
@@ -121,49 +122,37 @@
                 </div>
               </div>
             </div>
-            <!-- Solver filters -->
+            <!-- Solver filters (GTO Wizard-style: toggle filters, auto-solve) -->
             <div id="explore-solver-filters" class="hidden">
               <div class="config-row" style="margin-bottom: 10px;">
+                <label class="form-label">Stack</label>
+                <div class="toggle-group" id="solver-depth">
+                  <div class="toggle-option active" data-value="100bb">100bb</div>
+                  <div class="toggle-option" data-value="40bb">40bb</div>
+                  <div class="toggle-option" data-value="25bb">25bb</div>
+                  <div class="toggle-option" data-value="15bb">15bb</div>
+                </div>
+              </div>
+              <div class="config-row" style="margin-bottom: 10px;">
+                <label class="form-label">Matchup</label>
+                <div class="toggle-group" id="solver-matchup">
+                  <div class="toggle-option active" data-value="SB_vs_BB">SBvBB</div>
+                  <div class="toggle-option" data-value="BTN_vs_BB">BTNvBB</div>
+                  <div class="toggle-option" data-value="CO_vs_BB">COvBB</div>
+                  <div class="toggle-option" data-value="UTG_vs_BB">UTGvBB</div>
+                  <div class="toggle-option" data-value="BTN_vs_SB">BTNvSB</div>
+                </div>
+              </div>
+              <div class="config-row" style="margin-bottom: 10px;">
                 <label class="form-label">Board</label>
-                <div class="solver-board-input">
-                  <input type="text" id="solver-board" class="solver-input" placeholder="e.g. Ah 7d 2c" maxlength="14" spellcheck="false" autocomplete="off">
-                  <button class="btn btn-xs btn-dim" id="solver-random-board" title="Random flop">&#x1f3b2;</button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div id="solver-board-preview" class="solver-selected-cards" style="flex:1;"></div>
+                  <button class="btn btn-xs btn-dim" id="solver-open-board-picker" style="padding:5px 10px; font-size:9px; letter-spacing:0.1em; white-space:nowrap;">CHANGE</button>
                 </div>
               </div>
-              <div class="config-row" style="margin-bottom: 10px;">
-                <label class="form-label">OOP Range</label>
-                <input type="text" id="solver-oop-range" class="solver-input" placeholder="e.g. AA,KK,QQ,AKs,AKo" spellcheck="false" autocomplete="off" value="AA,KK,QQ,JJ,TT,99,88,77,66,55,AKs,AQs,AJs,ATs,A9s,A8s,A7s,A6s,A5s,A4s,A3s,A2s,KQs,KJs,KTs,K9s,QJs,QTs,Q9s,JTs,J9s,T9s,98s,87s,76s,65s,54s,AKo,AQo,AJo,ATo,KQo,KJo,QJo,JTo">
-              </div>
-              <div class="config-row" style="margin-bottom: 10px;">
-                <label class="form-label">IP Range</label>
-                <input type="text" id="solver-ip-range" class="solver-input" placeholder="e.g. QQ-TT,AJs,AQs,KQs" spellcheck="false" autocomplete="off" value="AA,KK,QQ,JJ,TT,99,88,77,66,AKs,AQs,AJs,ATs,A9s,A5s,A4s,KQs,KJs,KTs,QJs,QTs,JTs,T9s,98s,87s,76s,AKo,AQo,AJo,KQo">
-              </div>
-              <div class="config-row" style="margin-bottom: 10px; display: flex; gap: 12px;">
-                <div style="flex:1;">
-                  <label class="form-label">Pot</label>
-                  <input type="number" id="solver-pot" class="solver-input" value="100" min="1" max="10000">
-                </div>
-                <div style="flex:1;">
-                  <label class="form-label">Eff. Stack</label>
-                  <input type="number" id="solver-stack" class="solver-input" value="450" min="1" max="50000">
-                </div>
-              </div>
-              <div class="config-row" style="margin-bottom: 10px;">
-                <label class="form-label">Bet Sizes</label>
-                <div class="toggle-group" id="solver-bet-preset">
-                  <div class="toggle-option active" data-value="standard">Standard</div>
-                  <div class="toggle-option" data-value="simple">Simple</div>
-                  <div class="toggle-option" data-value="complex">Complex</div>
-                </div>
-              </div>
-              <div style="margin-top: 14px;">
-                <button class="btn btn-orange" id="solver-run-btn" style="width: 100%; font-weight: 600; letter-spacing: 0.05em;">SOLVE</button>
-              </div>
-              <div id="solver-progress" class="hidden" style="margin-top: 10px;">
-                <div class="solver-progress-bar">
-                  <div class="solver-progress-fill" id="solver-progress-fill"></div>
-                </div>
-                <div class="solver-progress-text" id="solver-progress-text">Initializing...</div>
+              <div id="solver-loading" class="hidden" style="margin-top: 10px; text-align: center;">
+                <span class="solver-spinner"></span>
+                <span style="font-size: 10px; color: var(--text-dim); margin-left: 6px;">Solving...</span>
               </div>
             </div>
           </div>
@@ -179,12 +168,16 @@
           </div>
           <div id="explore-solver-stats" class="hidden" style="margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border-dim);">
             <div class="stat-row">
-              <span class="stat-label">ITERATIONS</span>
-              <span class="stat-value text-orange" id="solver-stat-iterations">--</span>
+              <span class="stat-label">MATCHUP</span>
+              <span class="stat-value text-orange" id="solver-stat-matchup">--</span>
             </div>
             <div class="stat-row">
-              <span class="stat-label">EXPLOITABILITY</span>
-              <span class="stat-value text-orange" id="solver-stat-exploit">--</span>
+              <span class="stat-label">BOARD</span>
+              <span class="stat-value text-orange" id="solver-stat-board">--</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">TEXTURE</span>
+              <span class="stat-value text-orange" id="solver-stat-texture">--</span>
             </div>
             <div class="stat-row">
               <span class="stat-label">OOP EV</span>
@@ -194,6 +187,10 @@
               <span class="stat-label">IP EV</span>
               <span class="stat-value text-orange" id="solver-stat-ip-ev">--</span>
             </div>
+            <div class="stat-row" style="opacity: 0.4; font-size: 9px;">
+              <span class="stat-label">ACCURACY</span>
+              <span class="stat-value" id="solver-stat-accuracy">--</span>
+            </div>
           </div>
         </div>
       </div>
@@ -201,9 +198,13 @@
       <!-- RIGHT: Matrix + Details Column -->
       <div class="panel explore-right-column">
         <div class="explore-matrix-section">
-          <div class="panel-header">RANGE MATRIX <span class="panel-tag" id="explore-matrix-label">RFI — CO — 100BB</span></div>
+          <div class="panel-header" style="display:flex;align-items:center;gap:8px;">RANGE MATRIX <span class="panel-tag" id="explore-matrix-label">RFI — CO — 100BB</span><span id="explore-board-display" class="hidden" style="display:none;margin-left:auto;"></span></div>
         <div class="panel-body" style="padding: 14px 16px;">
-          <div class="hand-matrix-container">
+          <div class="hand-matrix-container" style="position:relative;">
+            <div id="explore-matrix-loading" class="hidden" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:10;flex-direction:column;gap:8px;">
+              <span class="solver-spinner"></span>
+              <span style="font-size:10px;color:var(--text-dim);">Solving...</span>
+            </div>
             <table class="hand-matrix" id="explore-matrix-table">
               <thead>
                 <tr>
@@ -436,11 +437,17 @@
               </tbody>
             </table>
           </div>
-          <div class="matrix-legend">
+          <div class="matrix-legend" id="explore-legend-preflop">
             <div class="legend-item"><div class="legend-swatch" style="background:rgba(74,246,195,0.5)"></div>Raise</div>
             <div class="legend-item"><div class="legend-swatch" style="background:rgba(0,104,255,0.5)"></div>Call</div>
             <div class="legend-item"><div class="legend-swatch" style="background:linear-gradient(to right, rgba(74,246,195,0.5) 50%, rgba(0,104,255,0.5) 50%)"></div>Mixed</div>
             <div class="legend-item"><div class="legend-swatch" style="background:#1a1a1a"></div>Fold</div>
+          </div>
+          <div class="matrix-legend hidden" id="explore-legend-postflop">
+            <div class="legend-item"><div class="legend-swatch" style="background:rgba(74,246,195,0.5)"></div>Bet/Raise</div>
+            <div class="legend-item"><div class="legend-swatch" style="background:rgba(0,104,255,0.5)"></div>Check/Call</div>
+            <div class="legend-item"><div class="legend-swatch" style="background:linear-gradient(to right, rgba(74,246,195,0.5) 50%, rgba(0,104,255,0.5) 50%)"></div>Mixed</div>
+            <div class="legend-item"><div class="legend-swatch" style="background:#1a1a1a"></div>Not in range</div>
           </div>
           <div class="range-summary-bar" id="explore-summary-bar"></div>
         </div>
@@ -465,17 +472,17 @@
               </div>
               <div style="display:flex; gap: 16px;">
                 <div class="freq-bar-item" style="flex:1;">
-                  <span class="freq-bar-label">FOLD</span>
+                  <span class="freq-bar-label" id="explore-freq-fold-label">FOLD</span>
                   <div class="freq-bar-track"><div class="freq-bar-fill fill-fold" id="explore-freq-fold" style="width:0%"></div></div>
                   <span class="freq-bar-value" id="explore-freq-fold-val">&mdash;</span>
                 </div>
                 <div class="freq-bar-item" style="flex:1;">
-                  <span class="freq-bar-label">CALL</span>
+                  <span class="freq-bar-label" id="explore-freq-call-label">CALL</span>
                   <div class="freq-bar-track"><div class="freq-bar-fill fill-call" id="explore-freq-call" style="width:0%"></div></div>
                   <span class="freq-bar-value" id="explore-freq-call-val">&mdash;</span>
                 </div>
                 <div class="freq-bar-item" style="flex:1;">
-                  <span class="freq-bar-label">RAISE</span>
+                  <span class="freq-bar-label" id="explore-freq-raise-label">RAISE</span>
                   <div class="freq-bar-track"><div class="freq-bar-fill fill-raise" id="explore-freq-raise" style="width:0%"></div></div>
                   <span class="freq-bar-value" id="explore-freq-raise-val">&mdash;</span>
                 </div>
@@ -492,8 +499,8 @@
             <!-- Empty state before solve -->
             <div id="solver-empty" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding: 40px 16px;">
               <div style="font-size: 28px; color: var(--text-dim); margin-bottom: 8px;">&#x1f9ee;</div>
-              <div style="color: var(--text-secondary); font-size: 12px; font-weight: 600; margin-bottom: 4px;">Postflop Solver</div>
-              <div style="color: var(--text-dim); font-size: 11px; line-height: 1.6;">Enter board, ranges, and click SOLVE to run<br>CFR iterations in your browser via WASM.</div>
+              <div style="color: var(--text-secondary); font-size: 12px; font-weight: 600; margin-bottom: 4px;">Postflop Explorer</div>
+              <div style="color: var(--text-dim); font-size: 11px; line-height: 1.6;">Select a matchup, texture, and board<br>to view GTO strategies.</div>
             </div>
             <!-- Solver output (hidden until solve completes) -->
             <div id="solver-output" class="hidden">
@@ -1859,6 +1866,53 @@
   </div>
 </div>
 
+<!-- Board Picker Modal -->
+<div id="modal-board-picker" class="modal-overlay hidden">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <span class="modal-title">Select Board</span>
+      <button class="modal-close" data-close="modal-board-picker">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:16px;">
+      <!-- Selected cards display -->
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+        <div id="bp-selected-cards" class="bp-selected-cards"></div>
+        <div style="margin-left:auto; display:flex; gap:4px;">
+          <button class="btn btn-xs btn-dim" id="bp-clear" style="font-size:9px;">CLEAR</button>
+          <button class="btn btn-xs btn-dim" id="bp-random" style="font-size:9px;">RANDOM</button>
+        </div>
+      </div>
+      <!-- Street labels -->
+      <div class="bp-street-labels" id="bp-street-labels">
+        <span style="color:var(--orange)">FLOP (pick 3)</span>
+        <span style="margin-left:12px;color:var(--text-dim)">TURN (+1)</span>
+        <span style="margin-left:12px;color:var(--text-dim)">RIVER (+1)</span>
+      </div>
+      <!-- 4x13 Card grid -->
+      <div id="bp-card-grid" class="bp-card-grid"></div>
+      <!-- Preset boards -->
+      <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border-dim);">
+        <div style="font-size:9px; font-weight:600; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px;">Preset Boards</div>
+        <div class="toggle-group" id="bp-texture" style="margin-bottom:10px;">
+          <div class="toggle-option active" data-value="dry_rainbow">Dry</div>
+          <div class="toggle-option" data-value="dry_twotone">Dry 2T</div>
+          <div class="toggle-option" data-value="wet_rainbow">Wet</div>
+          <div class="toggle-option" data-value="wet_twotone">Wet 2T</div>
+          <div class="toggle-option" data-value="monotone">Mono</div>
+          <div class="toggle-option" data-value="paired_dry">Paired</div>
+          <div class="toggle-option" data-value="highly_connected">Bway</div>
+        </div>
+        <div id="bp-preset-boards" class="bp-preset-boards"></div>
+      </div>
+      <!-- Confirm button -->
+      <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border-dim); display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-xs btn-dim" id="bp-cancel" style="font-size:10px; padding:6px 16px;">CANCEL</button>
+        <button class="btn btn-xs" id="bp-confirm" style="font-size:10px; padding:6px 16px; background:var(--orange); color:#000; font-weight:700;">CONFIRM</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════ SCRIPTS ═══════════════════ -->
 <script src="js/utils/helpers.js"></script>
 <script src="js/utils/storage.js"></script>
@@ -1870,7 +1924,11 @@
 <script src="js/data/push-fold-charts.js"></script>
 <script src="js/data/postflop-strategy.js"></script>
 <script src="js/data/postflop-solutions.js"></script>
+<script src="js/data/postflop-solutions-40bb.js"></script>
+<script src="js/data/postflop-solutions-25bb.js"></script>
+<script src="js/data/postflop-solutions-15bb.js"></script>
 <script src="js/data/postflop-solution-index.js"></script>
+<script src="js/data/postflop-matchups.js"></script>
 <script src="js/data/board-categories.js"></script>
 <script src="js/engine/deck.js"></script>
 <script src="js/engine/hand-evaluator.js"></script>

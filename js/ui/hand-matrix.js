@@ -88,9 +88,13 @@ GTO.UI.HandMatrix = {
   },
 
   // GTO Wizard-style summary bar showing raise/call/fold totals
-  updateSummaryBar: function(barId, rangeData) {
+  updateSummaryBar: function(barId, rangeData, labels) {
     var bar = document.getElementById(barId);
     if (!bar) return;
+
+    var rLabel = labels && labels.raise ? labels.raise : 'R';
+    var cLabel = labels && labels.call ? labels.call : 'C';
+    var fLabel = labels && labels.fold ? labels.fold : 'F';
 
     var raiseCombos = 0, callCombos = 0, foldCombos = 0;
     var totalCombos = 0;
@@ -117,15 +121,15 @@ GTO.UI.HandMatrix = {
     var html = '';
     if (rPct >= 1) {
       html += '<div class="summary-segment seg-raise" style="width:' + rPct.toFixed(1) + '%">' +
-        'R ' + rPct.toFixed(1) + '% <span style="opacity:0.7">(' + Math.round(raiseCombos) + ')</span></div>';
+        rLabel + ' ' + rPct.toFixed(1) + '% <span style="opacity:0.7">(' + Math.round(raiseCombos) + ')</span></div>';
     }
     if (cPct >= 1) {
       html += '<div class="summary-segment seg-call" style="width:' + cPct.toFixed(1) + '%">' +
-        'C ' + cPct.toFixed(1) + '% <span style="opacity:0.7">(' + Math.round(callCombos) + ')</span></div>';
+        cLabel + ' ' + cPct.toFixed(1) + '% <span style="opacity:0.7">(' + Math.round(callCombos) + ')</span></div>';
     }
     if (fPct >= 1) {
       html += '<div class="summary-segment seg-fold" style="width:' + fPct.toFixed(1) + '%">' +
-        'F ' + fPct.toFixed(1) + '% <span style="opacity:0.7">(' + Math.round(foldCombos) + ')</span></div>';
+        fLabel + ' ' + fPct.toFixed(1) + '% <span style="opacity:0.7">(' + Math.round(foldCombos) + ')</span></div>';
     }
 
     bar.innerHTML = html;

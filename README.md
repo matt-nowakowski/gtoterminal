@@ -39,7 +39,7 @@ GTOTerminal: Static files → Browser (that's it)
 
 | | Cash | MTT |
 |---|---|---|
-| **Stack depths** | 100bb, 40bb, 20bb | 100bb, 40bb, 25bb, 15bb |
+| **Stack depths** | 100bb, 40bb, 25bb, 15bb | 100bb, 40bb, 25bb, 15bb |
 | **RFI** | All 5 positions | All 5 positions |
 | **vs Raise** | 15 matchups per depth | 15 matchups per depth |
 | **vs 3-Bet** | 15 matchups (100bb, 40bb) | 15 matchups (100bb) |
@@ -112,23 +112,46 @@ Every BB defense matchup uses realistic GTO composition:
 
 ## Postflop Engine
 
-### Current: Heuristic Strategy Tables
+### Two-Tier Architecture: Pre-computed + Live WASM Solver
 
-SPR-aware frequency tables covering 12 spot types, 18 hand strength categories, and multiple board texture classifications. Provides directionally correct strategy (bet/check/fold frequencies) without board-specific solutions.
+1. **Pre-computed flop solutions** — 460 solved spots (5 matchups x 23 boards x 4 depths) shipped as static JS files. Instant lookup, same as preflop.
+2. **Browser-based WASM solver** — A Rust-compiled counterfactual regret minimization solver running in Web Workers. For boards without pre-computed solutions, the solver runs locally in your browser. Requires HTTP server (not `file://`).
+3. **Texture-based fuzzy matching** — For custom boards without exact matches, the `SolverCache` classifies board texture and returns the closest pre-computed solution as an approximation.
 
-### In Progress: WASM Solver + Pre-computed Solutions
+### Coverage
 
-The postflop engine is being upgraded to a two-tier architecture:
+| | Details |
+|---|---|
+| **Matchups** | SB vs BB, BTN vs BB, CO vs BB, UTG vs BB, BTN vs SB |
+| **Depths** | 100bb, 40bb, 25bb, 15bb |
+| **Boards** | 23 flops across 7 textures (dry rainbow, dry two-tone, wet rainbow, wet two-tone, monotone, paired, broadway) |
+| **Total spots** | 460 pre-computed |
+| **Actions** | Check/Bet (flop), Check/Allin (15bb) |
 
-1. **Pre-computed flop solutions** — Common spots (SRP, 3-bet pots, key board textures) shipped as static files. Instant lookup, same as preflop.
-2. **Browser-based WASM solver** — A Rust-compiled counterfactual regret minimization solver running in Web Workers. For any spot without a pre-computed solution, the solver runs locally to produce GTO-approximate frequencies.
+### Explore View (GTO Wizard-style)
+
+The Explore view's postflop mode displays GTO strategy on the same 13x13 hand matrix used for preflop:
+- **Range coloring** — In-range hands colored by action (green = bet/raise, blue = check/call, gradient = mixed)
+- **Board picker modal** — Card grid for custom boards, preset boards by texture category, street-aware selection (flop 3 + turn 1 + river 1)
+- **Summary bar** — Bet/Check/Fold percentages with combo counts
+- **Stats panel** — Matchup, board, texture, OOP/IP EVs, solver accuracy
 
 The solver directory (`solver/`) contains the Rust source. Compiled WASM output lives in `js/solver/pkg/`.
+
+### Pre-compute Pipeline
+
+```bash
+# Solve all 115 spots for a given depth (~2-9 hours depending on depth)
+node scripts/precompute-postflop.mjs --depth 100bb
+node scripts/precompute-postflop.mjs --depth 40bb
+node scripts/precompute-postflop.mjs --depth 25bb   # ~30 min
+node scripts/precompute-postflop.mjs --depth 15bb    # ~4 min (Check/Allin only)
+```
 
 ## Features
 
 ### Explore
-Browse preflop ranges across positions, stack depths, and action contexts. 13x13 hand matrix with action coloring — green for raise, blue for call, yellow for mixed, dark for fold. Full summary bars showing raise/call/fold percentages.
+Browse preflop and postflop ranges on a unified 13x13 hand matrix. Preflop mode shows ranges by position, stack depth, and action context with raise/call/fold coloring. Postflop mode displays GTO strategy (bet/check/fold) with a board picker modal, texture-based presets, and solver stats — same matrix interface for both.
 
 ### Drill
 Timed training sessions for three formats:
@@ -210,14 +233,18 @@ poker_training/
 │   ├── analytics/              # Session tracking + dashboard
 │   ├── content/                # Learn view + player profile
 │   ├── data/
-│   │   ├── preflop-ranges.js   # GTO preflop ranges (~6,200 lines)
-│   │   ├── postflop-strategy.js# SPR-aware heuristic strategy
-│   │   ├── postflop-solutions.js# Pre-computed postflop solutions
-│   │   ├── postflop-solution-index.js
-│   │   ├── push-fold-charts.js # Nash equilibrium charts
-│   │   ├── board-categories.js # Texture + strength classification
-│   │   ├── hand-constants.js   # Rankings, combos, positions
-│   │   └── content-catalog.js  # 25 strategy topics
+│   │   ├── preflop-ranges.js          # GTO preflop ranges (~6,200 lines)
+│   │   ├── postflop-strategy.js       # SPR-aware heuristic strategy
+│   │   ├── postflop-matchups.js       # 5 matchups, 23 boards, 4 depth configs
+│   │   ├── postflop-solutions.js      # Pre-computed solutions (100bb)
+│   │   ├── postflop-solutions-40bb.js # Pre-computed solutions (40bb)
+│   │   ├── postflop-solutions-25bb.js # Pre-computed solutions (25bb)
+│   │   ├── postflop-solutions-15bb.js # Pre-computed solutions (15bb)
+│   │   ├── postflop-solution-index.js # Solution lookup indexes
+│   │   ├── push-fold-charts.js        # Nash equilibrium charts
+│   │   ├── board-categories.js        # Texture + strength classification
+│   │   ├── hand-constants.js          # Rankings, combos, positions
+│   │   └── content-catalog.js         # 25 strategy topics
 │   ├── engine/
 │   │   ├── hand-evaluator.js   # 7-card eval + Monte Carlo equity
 │   │   ├── hand-playthrough.js # Multi-street hand engine
@@ -270,7 +297,7 @@ poker_training/
 |---|---|---|
 | **Architecture** | Client-side static files + WASM | Server-side database + API |
 | **Preflop data** | ~250 scenarios, heuristic (A- grade) | Millions, solver-computed |
-| **Postflop** | Heuristic + WASM solver (in progress) | 300K+ solved flops + neural net AI |
+| **Postflop** | 460 pre-computed spots + WASM solver + texture matching | 300K+ solved flops + neural net AI |
 | **Accuracy** | Within ±2% of solver benchmarks | 0.12% Nash distance |
 | **Offline** | Yes, fully | No |
 | **Cost** | Free, forever | $39-279/month |

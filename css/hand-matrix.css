@@ -590,3 +590,249 @@
   text-align: right;
   flex-shrink: 0;
 }
+
+/* Solver filter toggle groups (wrapping) */
+#solver-depth,
+#solver-matchup,
+#solver-texture,
+#solver-board-select {
+  flex-wrap: wrap;
+  gap: 1px;
+  overflow: visible;
+}
+
+#solver-matchup .toggle-option,
+#solver-texture .toggle-option {
+  padding: 4px 8px;
+  font-size: 9px;
+}
+
+#solver-board-select .toggle-option {
+  padding: 4px 10px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+/* Explore mode toggle — compact */
+#explore-mode {
+  flex-wrap: wrap;
+  gap: 1px;
+}
+
+#explore-mode .toggle-option {
+  padding: 5px 10px;
+  font-size: 9px;
+}
+
+/* Board display in matrix header (postflop mode) */
+#explore-board-display {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+#explore-board-display .playing-card {
+  width: 24px;
+  height: 32px;
+  min-width: 24px;
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+#explore-board-display .playing-card .card-rank {
+  font-size: 11px;
+}
+
+#explore-board-display .playing-card .card-suit {
+  font-size: 8px;
+  margin-top: 0;
+}
+
+/* ── Board Picker Modal ── */
+.bp-card-grid {
+  display: grid;
+  grid-template-columns: repeat(13, 1fr);
+  gap: 2px;
+}
+
+.bp-card-grid .bp-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  padding: 6px 0;
+  border: 1px solid var(--border-dim);
+  border-radius: 2px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+  background: #0a0a0a;
+}
+
+.bp-card-grid .bp-card:hover {
+  border-color: var(--orange);
+  filter: brightness(1.4);
+}
+
+.bp-card-grid .bp-card.bp-selected {
+  border-color: var(--orange);
+  background: rgba(255, 140, 0, 0.2);
+  box-shadow: 0 0 6px rgba(255, 140, 0, 0.3);
+}
+
+.bp-card-grid .bp-suit-s { color: #e0e0e0; }
+.bp-card-grid .bp-suit-h { color: #ff433d; }
+.bp-card-grid .bp-suit-d { color: #0068ff; }
+.bp-card-grid .bp-suit-c { color: #4af6c3; }
+
+.bp-street-labels {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 6px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.bp-street-label.bp-optional {
+  opacity: 0.5;
+}
+
+/* Selected cards in modal */
+.bp-selected-cards {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 44px;
+}
+
+.bp-selected-cards .playing-card {
+  width: 36px;
+  height: 48px;
+  min-width: 36px;
+}
+
+.bp-selected-cards .playing-card .card-rank { font-size: 16px; }
+.bp-selected-cards .playing-card .card-suit { font-size: 12px; margin-top: 0; }
+
+.bp-selected-cards .bp-street-sep {
+  width: 1px;
+  height: 30px;
+  background: var(--border-dim);
+  margin: 0 4px;
+}
+
+.bp-selected-cards .bp-placeholder {
+  width: 36px;
+  height: 48px;
+  border: 1px dashed var(--border-dim);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: 0.4;
+}
+
+/* Preset boards in modal */
+.bp-preset-boards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bp-preset-board {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #0a0a0a;
+}
+
+.bp-preset-board:hover {
+  border-color: var(--orange);
+  background: rgba(255, 140, 0, 0.08);
+}
+
+.bp-preset-board .playing-card {
+  width: 24px;
+  height: 32px;
+  min-width: 24px;
+  box-shadow: none;
+  border-radius: 2px;
+}
+
+.bp-preset-board .playing-card .card-rank { font-size: 11px; }
+.bp-preset-board .playing-card .card-suit { font-size: 8px; margin-top: 0; }
+
+/* Board preview in filter panel */
+.solver-selected-cards {
+  display: flex;
+  gap: 3px;
+  min-height: 28px;
+  align-items: center;
+}
+
+.solver-selected-cards .playing-card {
+  width: 28px;
+  height: 36px;
+  min-width: 28px;
+  border-radius: 2px;
+  box-shadow: none;
+}
+
+.solver-selected-cards .playing-card .card-rank { font-size: 12px; }
+.solver-selected-cards .playing-card .card-suit { font-size: 9px; margin-top: 0; }
+
+.solver-selected-cards .board-street-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-dim);
+  margin: 0 2px;
+}
+
+/* Texture presets in modal — wrapping */
+#bp-texture {
+  flex-wrap: wrap;
+  gap: 1px;
+  overflow: visible;
+}
+
+#bp-texture .toggle-option {
+  padding: 4px 10px;
+  font-size: 9px;
+}
+
+/* Solver loading spinner */
+.solver-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-dim);
+  border-top-color: var(--orange);
+  border-radius: 50%;
+  animation: solver-spin 0.8s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes solver-spin {
+  to { transform: rotate(360deg); }
+}
+
+#solver-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+}

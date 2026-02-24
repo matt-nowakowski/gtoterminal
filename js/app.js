@@ -1463,13 +1463,50 @@ GTO.App = {
           if (solverFilters) solverFilters.classList.toggle('hidden', mode !== 'solver');
           if (preflopStats) preflopStats.style.display = mode === 'solver' ? 'none' : '';
           if (solverStats) solverStats.classList.toggle('hidden', mode !== 'solver');
-          // Show/hide matrix vs solver results
-          if (matrixSection) matrixSection.style.display = mode === 'solver' ? 'none' : '';
-          if (detailSection) detailSection.style.display = mode === 'solver' ? 'none' : '';
+          // Matrix + detail always visible — postflop uses the same range matrix
+          if (matrixSection) matrixSection.style.display = '';
+          if (detailSection) detailSection.style.display = '';
+          // Solver results panel is hidden infrastructure (data rendered on matrix instead)
           if (solverResults) {
-            solverResults.classList.toggle('hidden', mode !== 'solver');
-            solverResults.style.display = mode === 'solver' ? 'flex' : 'none';
+            solverResults.classList.add('hidden');
+            solverResults.style.display = 'none';
           }
+          // Toggle board display + legend variants
+          var boardDisplay = document.getElementById('explore-board-display');
+          var legendPreflop = document.getElementById('explore-legend-preflop');
+          var legendPostflop = document.getElementById('explore-legend-postflop');
+          if (boardDisplay) {
+            boardDisplay.classList.toggle('hidden', mode !== 'solver');
+            boardDisplay.style.display = mode === 'solver' ? 'inline-flex' : 'none';
+          }
+          if (legendPreflop) legendPreflop.classList.toggle('hidden', mode === 'solver');
+          if (legendPostflop) legendPostflop.classList.toggle('hidden', mode !== 'solver');
+          // Update freq bar labels for postflop context
+          var foldLabel = document.getElementById('explore-freq-fold-label');
+          var callLabel = document.getElementById('explore-freq-call-label');
+          var raiseLabel = document.getElementById('explore-freq-raise-label');
+          if (mode === 'solver') {
+            if (foldLabel) foldLabel.textContent = 'FOLD';
+            if (callLabel) callLabel.textContent = 'CHECK';
+            if (raiseLabel) raiseLabel.textContent = 'BET';
+          } else {
+            if (foldLabel) foldLabel.textContent = 'FOLD';
+            if (callLabel) callLabel.textContent = 'CALL';
+            if (raiseLabel) raiseLabel.textContent = 'RAISE';
+          }
+          // Auto-load first solution when switching to solver mode
+          if (mode === 'solver') {
+            self._updateSolverFilters();
+          }
+          // Refresh matrix when switching back to preflop/pushfold
+          if (mode !== 'solver') {
+            self._updateExploreMatrix();
+          }
+        }
+
+        // Skip solver toggles — handled by dedicated listeners below
+        if (group.id === 'solver-depth' || group.id === 'solver-matchup') {
+          return;
         }
 
         // Show/hide villain row for vs_raise/vs_3bet
@@ -1496,41 +1533,35 @@ GTO.App = {
     // Initial render
     this._updateExploreMatrix();
 
-    // ── Solver event wiring ──
-    var solveBtn = document.getElementById('solver-run-btn');
-    if (solveBtn) {
-      solveBtn.addEventListener('click', function() { self._runSolver(); });
-    }
-
-    var randomBoardBtn = document.getElementById('solver-random-board');
-    if (randomBoardBtn) {
-      randomBoardBtn.addEventListener('click', function() {
-        var RANKS = '23456789TJQKA';
-        var SUITS = 'cdhs';
-        var deck = [];
-        for (var r = 0; r < 13; r++) {
-          for (var s = 0; s < 4; s++) {
-            deck.push(RANKS[r] + SUITS[s]);
-          }
+    // ── Solver filter auto-trigger wiring ──
+    // These use MutationObserver-style approach: the general toggle handler above
+    // sets .active, then we detect the change and trigger _autoSolve.
+    ['solver-depth', 'solver-matchup'].forEach(function(groupId) {
+      var group = document.getElementById(groupId);
+      if (!group) return;
+      // Track the current active value so we can detect changes
+      var lastActive = (group.querySelector('.toggle-option.active') || {}).getAttribute &&
+                       group.querySelector('.toggle-option.active') ?
+                       group.querySelector('.toggle-option.active').getAttribute('data-value') : null;
+      group.addEventListener('click', function(e) {
+        var opt = e.target.closest('.toggle-option');
+        if (!opt) return;
+        var newVal = opt.getAttribute('data-value');
+        if (newVal !== lastActive) {
+          lastActive = newVal;
+          self._autoSolve();
         }
-        // Shuffle and pick 3
-        for (var i = deck.length - 1; i > 0; i--) {
-          var j = Math.floor(Math.random() * (i + 1));
-          var tmp = deck[i]; deck[i] = deck[j]; deck[j] = tmp;
-        }
-        var boardInput = document.getElementById('solver-board');
-        if (boardInput) boardInput.value = deck[0] + ' ' + deck[1] + ' ' + deck[2];
-      });
-    }
-
-    // Solver bet preset toggle
-    document.querySelectorAll('#solver-bet-preset .toggle-option').forEach(function(opt) {
-      opt.addEventListener('click', function() {
-        var group = this.parentElement;
-        group.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
-        this.classList.add('active');
       });
     });
+
+    // Open board picker modal
+    var openBtn = document.getElementById('solver-open-board-picker');
+    if (openBtn) {
+      openBtn.addEventListener('click', function() { self._openBoardPicker(); });
+    }
+
+    // Board picker modal wiring
+    this._initBoardPickerModal();
   },
 
   _updateExploreMatrix: function() {
@@ -1644,7 +1675,9 @@ GTO.App = {
     var selectedEl = document.getElementById('explore-selected-hand');
     if (selectedEl) selectedEl.textContent = hand;
 
-    var rangeData = this._exploreRangeData || {};
+    var modeEl = document.querySelector('#explore-mode .toggle-option.active');
+    var mode = modeEl ? modeEl.getAttribute('data-value') : 'preflop';
+    var rangeData = (mode === 'solver') ? (this._postflopRangeData || {}) : (this._exploreRangeData || {});
     var freqs = rangeData[hand] || { fold: 1, call: 0, raise: 0 };
 
     // Update freq bars
@@ -1661,6 +1694,17 @@ GTO.App = {
     if (foldVal) foldVal.textContent = Math.round(freqs.fold * 100) + '%';
     if (callVal) callVal.textContent = Math.round(freqs.call * 100) + '%';
     if (raiseVal) raiseVal.textContent = Math.round(freqs.raise * 100) + '%';
+
+    // Update labels based on postflop mode
+    if (mode === 'solver' && this._postflopActions) {
+      var actionNames = this._postflopActions.map(function(a) { return a.split(':')[0]; });
+      var hasCheck = actionNames.indexOf('Check') >= 0;
+      var hasBet = actionNames.indexOf('Bet') >= 0;
+      var callLabelEl = document.getElementById('explore-freq-call-label');
+      var raiseLabelEl = document.getElementById('explore-freq-raise-label');
+      if (callLabelEl) callLabelEl.textContent = hasCheck ? 'CHECK' : 'CALL';
+      if (raiseLabelEl) raiseLabelEl.textContent = hasBet ? 'BET' : 'RAISE';
+    }
 
     var combosEl = document.getElementById('explore-hand-combos');
     var typeEl = document.getElementById('explore-hand-type');
@@ -1679,7 +1723,9 @@ GTO.App = {
     var container = document.getElementById('explore-combo-grid');
     if (!container) return;
 
-    var rangeData = this._exploreRangeData || {};
+    var modeEl = document.querySelector('#explore-mode .toggle-option.active');
+    var mode = modeEl ? modeEl.getAttribute('data-value') : 'preflop';
+    var rangeData = (mode === 'solver') ? (this._postflopRangeData || {}) : (this._exploreRangeData || {});
     var freqs = rangeData[hand] || { fold: 1, call: 0, raise: 0 };
 
     var SUITS = ['s', 'h', 'd', 'c'];
@@ -1726,130 +1772,657 @@ GTO.App = {
 
   _exploreRangeData: null,
   _solverResults: null,
+  _postflopRangeData: null,
+  _postflopActions: null,
 
-  // ═══════════════════ SOLVER ═══════════════════
-  _runSolver: function() {
-    var self = this;
-    var boardStr = (document.getElementById('solver-board').value || '').trim();
-    var oopRange = (document.getElementById('solver-oop-range').value || '').trim();
-    var ipRange = (document.getElementById('solver-ip-range').value || '').trim();
-    var pot = parseInt(document.getElementById('solver-pot').value) || 100;
-    var stack = parseInt(document.getElementById('solver-stack').value) || 450;
+  // ═══════════════════ SOLVER (GTO Wizard-style) ═══════════════════
+  _solveGeneration: 0,
 
-    // Validate inputs
-    if (!boardStr) { GTO.UI.Toast.error('Enter a board (e.g. Ah 7d 2c)'); return; }
-    if (!oopRange) { GTO.UI.Toast.error('Enter OOP range'); return; }
-    if (!ipRange) { GTO.UI.Toast.error('Enter IP range'); return; }
-
-    var boardCards = boardStr.split(/[\s,]+/).filter(Boolean);
-    if (boardCards.length < 3 || boardCards.length > 5) {
-      GTO.UI.Toast.error('Board must have 3-5 cards');
-      return;
-    }
-
-    // Validate card format
-    var validCard = /^[2-9TJQKA][cdhs]$/;
-    for (var i = 0; i < boardCards.length; i++) {
-      if (!validCard.test(boardCards[i])) {
-        GTO.UI.Toast.error('Invalid card: ' + boardCards[i] + ' (use e.g. Ah, Td, 2c)');
-        return;
-      }
-    }
-
-    // Get bet sizing preset
-    var presetEl = document.querySelector('#solver-bet-preset .toggle-option.active');
-    var preset = presetEl ? presetEl.getAttribute('data-value') : 'standard';
-    var betConfig = this._getSolverBetConfig(preset);
-
-    // Show progress
-    var progressEl = document.getElementById('solver-progress');
-    var progressFill = document.getElementById('solver-progress-fill');
-    var progressText = document.getElementById('solver-progress-text');
-    var solveBtn = document.getElementById('solver-run-btn');
-    if (progressEl) progressEl.classList.remove('hidden');
-    if (progressFill) progressFill.style.width = '0%';
-    if (progressText) progressText.textContent = 'Initializing solver...';
-    if (solveBtn) { solveBtn.disabled = true; solveBtn.textContent = 'SOLVING...'; }
-
-    // Initialize solver if needed, then solve
-    var initPromise = GTO.Solver.isAvailable() ? Promise.resolve() : GTO.Solver.init();
-
-    initPromise.then(function() {
-      if (progressText) progressText.textContent = 'Setting up game tree...';
-
-      return GTO.Solver.solve({
-        oopRange: oopRange,
-        ipRange: ipRange,
-        board: boardCards,
-        startingPot: pot,
-        effectiveStack: stack,
-        oopFlopBet: betConfig.oopFlopBet,
-        oopFlopRaise: betConfig.oopFlopRaise,
-        oopTurnBet: betConfig.oopTurnBet,
-        oopTurnRaise: betConfig.oopTurnRaise,
-        oopRiverBet: betConfig.oopRiverBet,
-        oopRiverRaise: betConfig.oopRiverRaise,
-        ipFlopBet: betConfig.ipFlopBet,
-        ipFlopRaise: betConfig.ipFlopRaise,
-        ipTurnBet: betConfig.ipTurnBet,
-        ipTurnRaise: betConfig.ipTurnRaise,
-        ipRiverBet: betConfig.ipRiverBet,
-        ipRiverRaise: betConfig.ipRiverRaise,
-        maxIterations: 200,
-        targetExploitability: 0.5,
-        onProgress: function(msg) {
-          var pct = msg.pctDone || Math.round((msg.iteration / 200) * 100);
-          if (progressFill) progressFill.style.width = Math.min(pct, 100) + '%';
-          if (progressText) progressText.textContent = 'Iteration ' + msg.iteration + ' — Exploitability: ' + (msg.exploitability || 0).toFixed(2);
-        }
-      });
-    }).then(function(results) {
-      self._solverResults = results;
-      if (progressFill) progressFill.style.width = '100%';
-      if (progressText) progressText.textContent = 'Done!';
-      setTimeout(function() {
-        if (progressEl) progressEl.classList.add('hidden');
-      }, 1500);
-      if (solveBtn) { solveBtn.disabled = false; solveBtn.textContent = 'SOLVE'; }
-      self._renderSolverResults(results, boardCards, pot);
-    }).catch(function(err) {
-      console.error('[Solver] Error:', err);
-      if (progressText) progressText.textContent = 'Error: ' + (err.message || err);
-      if (solveBtn) { solveBtn.disabled = false; solveBtn.textContent = 'SOLVE'; }
-      GTO.UI.Toast.error('Solver error: ' + (err.message || err));
+  // Map solver action names to matrix color slots
+  _solverActionSlots: function(actions) {
+    var AGGRESSIVE = { 'Bet': true, 'Raise': true, 'Allin': true };
+    var PASSIVE = { 'Check': true, 'Call': true };
+    return actions.map(function(a) {
+      var name = a.split(':')[0];
+      if (name === 'Fold') return 'fold';
+      if (AGGRESSIVE[name]) return 'raise';
+      if (PASSIVE[name]) return 'call';
+      return 'raise';
     });
   },
 
-  _getSolverBetConfig: function(preset) {
-    if (preset === 'simple') {
-      return {
+  // Convert pre-computed (aggregate) solution to rangeData for matrix
+  _buildPostflopRangeDataFromCache: function(cached, matchup) {
+    var player = cached.player || 'oop';
+    var rangeStr = player === 'oop' ? matchup.oopRange : matchup.ipRange;
+    var hands = rangeStr.split(',').map(function(h) { return h.trim(); });
+
+    var actions = (cached.actions || '').split('/');
+    var strategy = cached.strategy || [];
+    var slots = this._solverActionSlots(actions);
+
+    // Build aggregate frequencies
+    var aggFreqs = { raise: 0, call: 0, fold: 0 };
+    for (var i = 0; i < actions.length; i++) {
+      aggFreqs[slots[i]] += (strategy[i] || 0);
+    }
+
+    var rangeData = {};
+    for (var i = 0; i < hands.length; i++) {
+      if (hands[i]) rangeData[hands[i]] = { raise: aggFreqs.raise, call: aggFreqs.call, fold: aggFreqs.fold };
+    }
+    return rangeData;
+  },
+
+  // Convert WASM per-hand solver output to rangeData for matrix
+  _buildPostflopRangeDataFromWASM: function(results) {
+    var RANKS_STR = '23456789TJQKA';
+    var data = results.results || [];
+    var actions = (results.actions || '').split('/');
+    var player = results.player || 'oop';
+    var numActions = results.numActions || actions.length;
+    var oopCards = results.oopCards || [];
+    var ipCards = results.ipCards || [];
+    var isOop = player === 'oop';
+    var cards = isOop ? oopCards : ipCards;
+    var numCombos = cards.length;
+    var oopN = oopCards.length;
+    var ipN = ipCards.length;
+
+    if (data.length < 3 || numCombos === 0) return {};
+
+    var slots = this._solverActionSlots(actions);
+
+    // Extract weights
+    var weightOffset = 3 + (isOop ? 0 : oopN);
+    var weights = data.slice(weightOffset, weightOffset + numCombos);
+
+    // Extract strategy (same parsing as _renderSolverResults)
+    var isEmptyFlag = data[2];
+    var offset = 3 + oopN + ipN + oopN + ipN;
+    if (isEmptyFlag === 0) {
+      offset += oopN + ipN + oopN + ipN + oopN + ipN;
+    }
+
+    var strategy = [];
+    if (data.length >= offset + numActions * numCombos) {
+      for (var a = 0; a < numActions; a++) {
+        var actionStrat = [];
+        for (var c = 0; c < numCombos; c++) {
+          actionStrat.push(data[offset + a * numCombos + c]);
+        }
+        strategy.push(actionStrat);
+      }
+    }
+
+    // Map combos to hand names and accumulate
+    var handAccum = {};
+    for (var i = 0; i < numCombos; i++) {
+      var w = weights[i] || 0;
+      if (w < 0.001) continue;
+
+      // Cards are packed as pairs: [c1, c2] in the array
+      var c1, c2;
+      if (Array.isArray(cards[i])) {
+        c1 = cards[i][0]; c2 = cards[i][1];
+      } else {
+        c1 = cards[i] & 0xFF; c2 = (cards[i] >> 8) & 0xFF;
+      }
+      var r1 = Math.floor(c1 / 4);
+      var r2 = Math.floor(c2 / 4);
+
+      // Build hand name (higher rank first)
+      var highR = Math.max(r1, r2);
+      var lowR = Math.min(r1, r2);
+      var handName;
+      if (r1 === r2) {
+        handName = RANKS_STR[r1] + RANKS_STR[r2];
+      } else if ((c1 % 4) === (c2 % 4)) {
+        handName = RANKS_STR[highR] + RANKS_STR[lowR] + 's';
+      } else {
+        handName = RANKS_STR[highR] + RANKS_STR[lowR] + 'o';
+      }
+
+      if (!handAccum[handName]) {
+        handAccum[handName] = { raise: 0, call: 0, fold: 0, totalWeight: 0 };
+      }
+
+      for (var a = 0; a < numActions; a++) {
+        var freq = strategy[a] ? strategy[a][i] : 0;
+        handAccum[handName][slots[a]] += freq * w;
+      }
+      handAccum[handName].totalWeight += w;
+    }
+
+    // Normalize to [0,1] per hand
+    var rangeData = {};
+    for (var h in handAccum) {
+      var acc = handAccum[h];
+      var tw = acc.totalWeight;
+      if (tw > 0) {
+        rangeData[h] = {
+          raise: acc.raise / tw,
+          call: acc.call / tw,
+          fold: acc.fold / tw
+        };
+      }
+    }
+    return rangeData;
+  },
+
+  // Render inline board cards in the matrix header
+  _updatePostflopBoardDisplay: function(boardCards) {
+    var container = document.getElementById('explore-board-display');
+    if (!container || !boardCards) return;
+    var html = '';
+    boardCards.forEach(function(c) {
+      var card = typeof c === 'string' ? { rank: c[0], suit: c[1] } : c;
+      html += GTO.UI.BoardDisplay.renderCard(card);
+    });
+    container.innerHTML = html;
+  },
+
+  // Update matrix label for postflop context
+  _updatePostflopMatrixLabel: function(matchup, boardCards) {
+    var label = document.getElementById('explore-matrix-label');
+    if (!label) return;
+    var boardStr = boardCards.map(function(c) {
+      return typeof c === 'string' ? c.toUpperCase() : (c.rank + c.suit).toUpperCase();
+    }).join(' ');
+    label.textContent = (matchup.label || '') + ' \u2014 ' + boardStr;
+  },
+
+  _selectedBoardCards: [], // array of card strings like ['Ac','7d','2h']
+
+  // ── Board Picker Modal ──
+  _initBoardPickerModal: function() {
+    var self = this;
+
+    // Build the 4x13 card grid
+    var grid = document.getElementById('bp-card-grid');
+    if (grid) {
+      var RANKS = ['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+      var SUITS = [
+        { code: 's', sym: '\u2660', name: 'spades' },
+        { code: 'h', sym: '\u2665', name: 'hearts' },
+        { code: 'd', sym: '\u2666', name: 'diamonds' },
+        { code: 'c', sym: '\u2663', name: 'clubs' }
+      ];
+      var html = '';
+      SUITS.forEach(function(suit) {
+        RANKS.forEach(function(rank) {
+          var card = rank + suit.code;
+          html += '<div class="bp-card bp-suit-' + suit.code + '" data-card="' + card + '">' +
+            rank + suit.sym + '</div>';
+        });
+      });
+      grid.innerHTML = html;
+
+      grid.addEventListener('click', function(e) {
+        var el = e.target.closest('.bp-card');
+        if (!el) return;
+        var card = el.getAttribute('data-card');
+        var len = self._selectedBoardCards.length;
+        var idx = self._selectedBoardCards.indexOf(card);
+
+        if (idx >= 0) {
+          // Deselect: remove this card and any later-street cards
+          self._selectedBoardCards = self._selectedBoardCards.slice(0, idx);
+        } else if (len < 3) {
+          // Building flop: add cards until we have 3
+          self._selectedBoardCards.push(card);
+        } else if (len === 3) {
+          // Flop complete → set turn card (slot 3)
+          self._selectedBoardCards[3] = card;
+        } else if (len === 4) {
+          // Turn set → set river card (slot 4)
+          self._selectedBoardCards[4] = card;
+        } else {
+          // Board full (5 cards) → replace river card
+          self._selectedBoardCards[4] = card;
+        }
+        self._updateBoardPickerDisplay();
+      });
+    }
+
+    // Texture preset tabs
+    var textureGroup = document.getElementById('bp-texture');
+    if (textureGroup) {
+      textureGroup.addEventListener('click', function(e) {
+        var opt = e.target.closest('.toggle-option');
+        if (!opt) return;
+        textureGroup.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
+        opt.classList.add('active');
+        self._populatePresetBoards();
+      });
+    }
+
+    // Preset board clicks
+    var presetContainer = document.getElementById('bp-preset-boards');
+    if (presetContainer) {
+      presetContainer.addEventListener('click', function(e) {
+        var el = e.target.closest('.bp-preset-board');
+        if (!el) return;
+        var boardLabel = el.getAttribute('data-board');
+        var boards = GTO.Data.PostflopBoards || [];
+        for (var i = 0; i < boards.length; i++) {
+          if (boards[i].label === boardLabel) {
+            self._selectedBoardCards = boards[i].board.slice();
+            self._updateBoardPickerDisplay();
+            // Close modal — _closeBoardPicker handles preview update + autoSolve
+            self._closeBoardPicker();
+            return;
+          }
+        }
+      });
+    }
+
+    // Clear button
+    var clearBtn = document.getElementById('bp-clear');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function() {
+        self._selectedBoardCards = [];
+        self._updateBoardPickerDisplay();
+      });
+    }
+
+    // Random button
+    var randomBtn = document.getElementById('bp-random');
+    if (randomBtn) {
+      randomBtn.addEventListener('click', function() {
+        self._randomSolverBoard();
+        self._updateBoardPickerDisplay();
+      });
+    }
+
+    // CONFIRM button — apply selection and solve
+    var confirmBtn = document.getElementById('bp-confirm');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function() { self._confirmBoardPicker(); });
+    }
+
+    // CANCEL button — revert to previous selection
+    var cancelBtn = document.getElementById('bp-cancel');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function() { self._cancelBoardPicker(); });
+    }
+
+    // Close X button — same as cancel
+    var closeBtn = document.querySelector('#modal-board-picker .modal-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() { self._cancelBoardPicker(); });
+    }
+
+    // Init preset boards
+    this._populatePresetBoards();
+  },
+
+  _boardPickerPrevCards: null,
+
+  _openBoardPicker: function() {
+    // Save current state so we can revert on cancel
+    this._boardPickerPrevCards = this._selectedBoardCards.slice();
+    var modal = document.getElementById('modal-board-picker');
+    if (modal) modal.classList.remove('hidden');
+    this._updateBoardPickerDisplay();
+  },
+
+  _confirmBoardPicker: function() {
+    var modal = document.getElementById('modal-board-picker');
+    if (modal) modal.classList.add('hidden');
+    this._boardPickerPrevCards = null;
+    // Apply: update preview and solve
+    this._updateBoardPreview();
+    if (this._selectedBoardCards.length >= 3) {
+      this._autoSolve();
+    }
+  },
+
+  _cancelBoardPicker: function() {
+    // Revert to previous selection
+    if (this._boardPickerPrevCards) {
+      this._selectedBoardCards = this._boardPickerPrevCards.slice();
+    }
+    this._boardPickerPrevCards = null;
+    var modal = document.getElementById('modal-board-picker');
+    if (modal) modal.classList.add('hidden');
+  },
+
+  _closeBoardPicker: function() {
+    // Legacy — now routes through confirm
+    this._confirmBoardPicker();
+  },
+
+  _updateBoardPickerDisplay: function() {
+    // Update grid highlights
+    var grid = document.getElementById('bp-card-grid');
+    if (grid) {
+      var selected = this._selectedBoardCards;
+      grid.querySelectorAll('.bp-card').forEach(function(el) {
+        el.classList.toggle('bp-selected', selected.indexOf(el.getAttribute('data-card')) >= 0);
+      });
+    }
+
+    // Update selected cards display in modal
+    var display = document.getElementById('bp-selected-cards');
+    if (display) {
+      var html = '';
+      // Show 5 slots: 3 flop + turn + river
+      for (var i = 0; i < 5; i++) {
+        if (i === 3) html += '<div class="bp-street-sep"></div>';
+        if (i === 4) html += '<div class="bp-street-sep"></div>';
+        if (i < this._selectedBoardCards.length) {
+          var c = this._selectedBoardCards[i];
+          html += GTO.UI.BoardDisplay.renderCard({ rank: c[0], suit: c[1] });
+        } else {
+          var label = i < 3 ? '' : (i === 3 ? 'T' : 'R');
+          html += '<div class="bp-placeholder">' + label + '</div>';
+        }
+      }
+      display.innerHTML = html;
+    }
+
+    // Update street labels to show active street
+    var streetLabels = document.getElementById('bp-street-labels');
+    if (streetLabels) {
+      var n = this._selectedBoardCards.length;
+      var flopLabel = n < 3 ? 'FLOP (' + (3 - n) + ' more)' : 'FLOP';
+      var turnLabel = n === 3 ? 'TURN (pick 1)' : 'TURN (+1)';
+      var riverLabel = n === 4 ? 'RIVER (pick 1)' : 'RIVER (+1)';
+      streetLabels.innerHTML =
+        '<span style="color:' + (n < 3 ? 'var(--orange)' : 'var(--text-dim)') + '">' + flopLabel + '</span>' +
+        '<span style="margin-left:12px;color:' + (n === 3 ? 'var(--orange)' : 'var(--text-dim)') + '">' + turnLabel + '</span>' +
+        '<span style="margin-left:12px;color:' + (n === 4 ? 'var(--orange)' : 'var(--text-dim)') + '">' + riverLabel + '</span>';
+    }
+  },
+
+  _updateBoardPreview: function() {
+    // Update the small board preview in the filter panel
+    var display = document.getElementById('solver-board-preview');
+    if (!display) return;
+    if (this._selectedBoardCards.length === 0) {
+      display.innerHTML = '<span style="font-size:9px;color:var(--text-dim);">No board selected</span>';
+    } else {
+      var html = '';
+      for (var i = 0; i < this._selectedBoardCards.length; i++) {
+        if (i === 3 || i === 4) html += '<div class="board-street-sep"></div>';
+        var c = this._selectedBoardCards[i];
+        html += GTO.UI.BoardDisplay.renderCard({ rank: c[0], suit: c[1] });
+      }
+      display.innerHTML = html;
+    }
+  },
+
+  _populatePresetBoards: function() {
+    var container = document.getElementById('bp-preset-boards');
+    var textureEl = document.querySelector('#bp-texture .toggle-option.active');
+    if (!container || !textureEl || !GTO.Data.PostflopTextures) return;
+
+    var texture = textureEl.getAttribute('data-value');
+    var textureDef = GTO.Data.PostflopTextures[texture];
+    var boardLabels = textureDef ? textureDef.boards : [];
+    var boards = GTO.Data.PostflopBoards || [];
+
+    var html = '';
+    boardLabels.forEach(function(label) {
+      var boardDef = null;
+      for (var i = 0; i < boards.length; i++) {
+        if (boards[i].label === label) { boardDef = boards[i]; break; }
+      }
+      if (!boardDef) return;
+      html += '<div class="bp-preset-board" data-board="' + label + '">';
+      boardDef.board.forEach(function(c) {
+        html += GTO.UI.BoardDisplay.renderCard({ rank: c[0], suit: c[1] });
+      });
+      html += '</div>';
+    });
+    container.innerHTML = html;
+  },
+
+  _updateSolverFilters: function() {
+    // Auto-select a default board if none selected
+    if (this._selectedBoardCards.length < 3) {
+      var boards = GTO.Data.PostflopBoards || [];
+      if (boards.length > 0) {
+        this._selectedBoardCards = boards[0].board.slice();
+      }
+    }
+    this._updateBoardPreview();
+    this._autoSolve();
+  },
+
+  _autoSolve: function() {
+    var self = this;
+    var generation = ++this._solveGeneration;
+
+    // Read filter state
+    var depthEl = document.querySelector('#solver-depth .toggle-option.active');
+    var matchupEl = document.querySelector('#solver-matchup .toggle-option.active');
+
+    var depth = depthEl ? depthEl.getAttribute('data-value') : '100bb';
+    var matchupKey = matchupEl ? matchupEl.getAttribute('data-value') : 'SB_vs_BB';
+
+    // Board from card picker (need at least 3 = flop)
+    var boardCards = this._selectedBoardCards || [];
+    if (boardCards.length < 3 || !GTO.Data.PostflopMatchups) return;
+
+    var matchup = GTO.Data.PostflopMatchups[matchupKey];
+    if (!matchup) return;
+
+    // Depth config
+    var depthCfg = GTO.Data.PostflopDepths ? GTO.Data.PostflopDepths[depth] : { pot: 100, stack: 450 };
+
+    // Try to find matching pre-computed board
+    var boardLabel = null;
+    var boards = GTO.Data.PostflopBoards || [];
+    for (var i = 0; i < boards.length; i++) {
+      var b = boards[i].board;
+      if (b.length === boardCards.length && boardCards.every(function(c, idx) { return c === b[idx]; })) {
+        boardLabel = boards[i].label;
+        break;
+      }
+    }
+
+    // ── Immediately update header board display + label + stats ──
+    this._updatePostflopBoardDisplay(boardCards);
+    this._updatePostflopMatrixLabel(matchup, boardCards);
+    GTO.UI.HUD.updateStat('solver-stat-matchup', matchup.label);
+    GTO.UI.HUD.updateStat('solver-stat-board', boardLabel || boardCards.join(' ').toUpperCase());
+    GTO.UI.HUD.updateStat('solver-stat-texture', boardLabel ? boards.find(function(b) { return b.label === boardLabel; }).texture.replace(/_/g, ' ') : 'custom');
+
+    // Check pre-computed solutions (depth-aware, only for matching preset boards)
+    var cached = null;
+    if (boardLabel) {
+      var varName = depth === '100bb' ? 'PostflopSolutions' : 'PostflopSolutions_' + depth.replace('bb', 'BB');
+      var solutions = GTO.Data[varName];
+      if (solutions && solutions[matchupKey] && solutions[matchupKey][boardLabel] && !solutions[matchupKey][boardLabel].error) {
+        cached = solutions[matchupKey][boardLabel];
+      }
+    }
+
+    var loadingEl = document.getElementById('solver-loading');
+    var matrixLoading = document.getElementById('explore-matrix-loading');
+
+    // Helper to hide all loading states
+    function hideLoading() {
+      if (loadingEl) loadingEl.classList.add('hidden');
+      if (matrixLoading) matrixLoading.classList.add('hidden');
+    }
+
+    if (cached) {
+      // Instant display from pre-computed solution
+      hideLoading();
+      self._renderSolverResultsFromCache(cached, boardCards, depthCfg.pot);
+      return;
+    }
+
+    // No cache match — show in-range hands immediately (neutral), then try WASM
+    var rangeData = this._buildInRangeOnlyData(matchup);
+    this._postflopRangeData = rangeData;
+    this._postflopActions = null;
+    GTO.UI.HandMatrix.updateMatrix('explore-matrix-table', rangeData, null, null);
+    GTO.UI.HandMatrix.updateSummaryBar('explore-summary-bar', rangeData, { raise: 'B', call: 'X', fold: 'F' });
+
+    // Clear solver-specific stats for custom boards
+    GTO.UI.HUD.updateStat('solver-stat-oop-ev', '--');
+    GTO.UI.HUD.updateStat('solver-stat-ip-ev', '--');
+    GTO.UI.HUD.updateStat('solver-stat-accuracy', '--');
+
+    // Show loading overlays on both left panel and matrix
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (matrixLoading) matrixLoading.classList.remove('hidden');
+
+    var initPromise = (GTO.Solver && GTO.Solver.isAvailable()) ? Promise.resolve() : (GTO.Solver ? GTO.Solver.init() : Promise.reject(new Error('Solver not available')));
+
+    initPromise.then(function() {
+      return GTO.Solver.solveWithCache({
+        oopRange: matchup.oopRange,
+        ipRange: matchup.ipRange,
+        board: boardCards,
+        startingPot: depthCfg.pot,
+        effectiveStack: depthCfg.stack,
+        oopPosition: matchup.oop,
+        ipPosition: matchup.ip,
         oopFlopBet: '33%', oopFlopRaise: '60%',
         oopTurnBet: '67%', oopTurnRaise: '60%',
         oopRiverBet: '67%', oopRiverRaise: '60%',
         ipFlopBet: '33%', ipFlopRaise: '60%',
         ipTurnBet: '67%', ipTurnRaise: '60%',
-        ipRiverBet: '67%', ipRiverRaise: '60%'
-      };
+        ipRiverBet: '67%', ipRiverRaise: '60%',
+        maxIterations: 200,
+        targetExploitability: 0.5,
+        onProgress: function() { /* silent */ }
+      });
+    }).then(function(results) {
+      if (generation !== self._solveGeneration) return; // stale
+      hideLoading();
+      self._solverResults = results;
+
+      // SolverCache returns texture-matched pre-computed results in a different format
+      if (results.cached) {
+        // Convert SolverCache format to our _renderSolverResultsFromCache format
+        var fakeCached = {
+          actions: results.actions,
+          strategy: results.strategy,
+          player: results.player || 'oop',
+          oopEV: results.oopEV,
+          ipEV: results.ipEV,
+          exploitability: results.solveInfo ? results.solveInfo.exploitability : null,
+          iterations: results.solveInfo ? results.solveInfo.iterations : 0
+        };
+        self._renderSolverResultsFromCache(fakeCached, boardCards, depthCfg.pot);
+      } else {
+        self._renderSolverResults(results, boardCards, depthCfg.pot);
+      }
+    }).catch(function(err) {
+      if (generation !== self._solveGeneration) return;
+      hideLoading();
+      // Matrix shows in-range hands; update accuracy to indicate no solver data
+      GTO.UI.HUD.updateStat('solver-stat-accuracy', 'no solver');
+      console.warn('[Solver] WASM solve failed:', err && err.message || err);
+    });
+  },
+
+  // Build rangeData with all in-range hands as "call" (neutral blue) for boards without solver data
+  _buildInRangeOnlyData: function(matchup) {
+    var player = 'oop';
+    var rangeStr = matchup.oopRange;
+    var hands = rangeStr.split(',').map(function(h) { return h.trim(); });
+    var rangeData = {};
+    for (var i = 0; i < hands.length; i++) {
+      if (hands[i]) rangeData[hands[i]] = { raise: 0, call: 1, fold: 0 };
     }
-    if (preset === 'complex') {
-      return {
-        oopFlopBet: '25%,33%,67%,100%', oopFlopRaise: '50%,100%',
-        oopTurnBet: '33%,67%,100%,150%', oopTurnRaise: '50%,100%',
-        oopRiverBet: '33%,67%,100%,150%,200%', oopRiverRaise: '50%,100%',
-        ipFlopBet: '25%,33%,67%,100%', ipFlopRaise: '50%,100%',
-        ipTurnBet: '33%,67%,100%,150%', ipTurnRaise: '50%,100%',
-        ipRiverBet: '33%,67%,100%,150%,200%', ipRiverRaise: '50%,100%'
-      };
+    return rangeData;
+  },
+
+  _renderSolverResultsFromCache: function(cached, boardCards, pot) {
+    var emptyEl = document.getElementById('solver-empty');
+    var outputEl = document.getElementById('solver-output');
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (outputEl) outputEl.classList.remove('hidden');
+
+    // Update label
+    var label = document.getElementById('solver-results-label');
+    if (label) label.textContent = boardCards.join(' ').toUpperCase();
+
+    // Board display — convert string cards to {rank, suit} objects
+    if (GTO.UI.BoardDisplay) {
+      var cardObjects = boardCards.map(function(c) {
+        return typeof c === 'string' ? { rank: c[0], suit: c[1] } : c;
+      });
+      GTO.UI.BoardDisplay.renderBoard('solver-board-display', cardObjects);
     }
-    // Standard
-    return {
-      oopFlopBet: '33%,67%', oopFlopRaise: '60%',
-      oopTurnBet: '33%,67%', oopTurnRaise: '60%',
-      oopRiverBet: '33%,67%,100%', oopRiverRaise: '60%',
-      ipFlopBet: '33%,67%', ipFlopRaise: '60%',
-      ipTurnBet: '33%,67%', ipTurnRaise: '60%',
-      ipRiverBet: '33%,67%,100%', ipRiverRaise: '60%'
-    };
+
+    // Parse actions
+    var actions = (cached.actions || '').split('/');
+    var strategy = cached.strategy || [];
+
+    // Player label
+    var playerLabel = document.getElementById('solver-player-label');
+    if (playerLabel) playerLabel.textContent = (cached.player || 'OOP').toUpperCase();
+
+    // Stats
+    GTO.UI.HUD.updateStat('solver-stat-oop-ev', cached.oopEV != null ? cached.oopEV.toFixed(1) : '--');
+    GTO.UI.HUD.updateStat('solver-stat-ip-ev', cached.ipEV != null ? cached.ipEV.toFixed(1) : '--');
+    GTO.UI.HUD.updateStat('solver-stat-accuracy', cached.exploitability != null
+      ? cached.exploitability.toFixed(1) + '% (' + (cached.iterations || 0) + ' iter)'
+      : '--');
+
+    // Action buttons
+    var actionsDiv = document.getElementById('solver-actions');
+    if (actionsDiv) {
+      var html = '';
+      for (var a = 0; a < actions.length; a++) {
+        var parts = actions[a].split(':');
+        var name = parts[0] || actions[a];
+        var amount = parts[1] && parts[1] !== '0' ? ' ' + parts[1] : '';
+        html += '<button class="solver-action-btn" data-action="' + actions[a] + '">' + name + amount + '</button>';
+      }
+      actionsDiv.innerHTML = html;
+    }
+
+    // Strategy bars
+    this._renderSolverStrategyBars(strategy, actions, 0);
+
+    // Hand table — aggregate only for cached solutions
+    var tbody = document.getElementById('solver-hand-tbody');
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);font-size:10px;padding:16px;">Aggregate strategy from pre-computed solution</td></tr>';
+    }
+
+    // ── Update the range matrix with postflop data ──
+    var matchupEl = document.querySelector('#solver-matchup .toggle-option.active');
+    var matchupKey = matchupEl ? matchupEl.getAttribute('data-value') : 'SB_vs_BB';
+    var matchup = GTO.Data.PostflopMatchups ? GTO.Data.PostflopMatchups[matchupKey] : null;
+    if (matchup) {
+      var rangeData = this._buildPostflopRangeDataFromCache(cached, matchup);
+      this._postflopRangeData = rangeData;
+      this._postflopActions = (cached.actions || '').split('/');
+      GTO.UI.HandMatrix.updateMatrix('explore-matrix-table', rangeData, null, null);
+      GTO.UI.HandMatrix.updateSummaryBar('explore-summary-bar', rangeData, { raise: 'B', call: 'X', fold: 'F' });
+    }
+  },
+
+  _randomSolverBoard: function() {
+    // Pick 3 random cards for a flop
+    var RANKS = ['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+    var SUITS = ['s','h','d','c'];
+    var deck = [];
+    for (var r = 0; r < RANKS.length; r++) {
+      for (var s = 0; s < SUITS.length; s++) {
+        deck.push(RANKS[r] + SUITS[s]);
+      }
+    }
+    // Shuffle and pick 3
+    for (var i = deck.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = deck[i]; deck[i] = deck[j]; deck[j] = tmp;
+    }
+    this._selectedBoardCards = deck.slice(0, 3);
+
+    // Clear preset highlights in modal
+    var textureGroup = document.getElementById('bp-texture');
+    if (textureGroup) textureGroup.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
   },
 
   _renderSolverResults: function(results, boardCards, pot) {
@@ -1862,10 +2435,13 @@ GTO.App = {
     var label = document.getElementById('solver-results-label');
     if (label) label.textContent = boardCards.join(' ').toUpperCase();
 
-    // Board display
+    // Board display — convert string cards to {rank, suit} objects
     var boardDisplay = document.getElementById('solver-board-display');
     if (boardDisplay && GTO.UI.BoardDisplay) {
-      GTO.UI.BoardDisplay.renderBoard('solver-board-display', boardCards);
+      var cardObjects = boardCards.map(function(c) {
+        return typeof c === 'string' ? { rank: c[0], suit: c[1] } : c;
+      });
+      GTO.UI.BoardDisplay.renderBoard('solver-board-display', cardObjects);
     } else if (boardDisplay) {
       boardDisplay.innerHTML = boardCards.map(function(c) {
         return '<span style="font-size:18px; font-weight:700; letter-spacing:0.05em;">' + c + '</span>';
@@ -1885,10 +2461,9 @@ GTO.App = {
 
     // Update solver stats
     var solveInfo = results.solveInfo || {};
-    var iterEl = document.getElementById('solver-stat-iterations');
-    var exploitEl = document.getElementById('solver-stat-exploit');
-    if (iterEl) iterEl.textContent = solveInfo.iterations || '--';
-    if (exploitEl) exploitEl.textContent = (solveInfo.exploitability || 0).toFixed(2) + '%';
+    GTO.UI.HUD.updateStat('solver-stat-accuracy', solveInfo.exploitability != null
+      ? (solveInfo.exploitability || 0).toFixed(1) + '% (' + (solveInfo.iterations || 0) + ' iter)'
+      : '--');
 
     // Render action buttons
     var actionsDiv = document.getElementById('solver-actions');
@@ -2000,6 +2575,13 @@ GTO.App = {
 
     this._renderSolverStrategyBars(aggStrategy, actions, numCombos);
     this._renderSolverHandTable(strategy, weights, cards, actions, numActions, data, pot, equityArr, evArr);
+
+    // ── Update the range matrix with per-hand postflop data ──
+    var rangeData = this._buildPostflopRangeDataFromWASM(results);
+    this._postflopRangeData = rangeData;
+    this._postflopActions = actions;
+    GTO.UI.HandMatrix.updateMatrix('explore-matrix-table', rangeData, null, null);
+    GTO.UI.HandMatrix.updateSummaryBar('explore-summary-bar', rangeData, { raise: 'B', call: 'X', fold: 'F' });
   },
 
   _renderSolverStrategyBars: function(aggStrategy, actions, numCombos) {
