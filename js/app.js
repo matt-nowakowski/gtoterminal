@@ -26,6 +26,7 @@ GTO.App = {
     this._setupPlans();
     this._setupLearn();
     this._setupStream();
+    this._setupICMToggle();
 
     // Global keyboard shortcuts
     GTO.Keyboard.register('global', '?', function() { GTO.UI.Modal.open('modal-help'); });
@@ -497,12 +498,17 @@ GTO.App = {
     }
 
     // Postflop action buttons (both groups)
-    document.querySelectorAll('#postflop-betting-actions .action-btn, #postflop-facing-actions .action-btn').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        var action = this.getAttribute('data-action');
-        if (action) self._submitPostflopAction(action);
+    // Dynamic action buttons — delegate clicks from container
+    var dynActions = document.getElementById('postflop-dynamic-actions');
+    if (dynActions) {
+      dynActions.addEventListener('click', function(e) {
+        var btn = e.target.closest('.action-btn');
+        if (btn && !btn.disabled) {
+          var action = btn.getAttribute('data-action');
+          if (action) self._submitPostflopAction(action);
+        }
       });
-    });
+    }
 
     // Postflop AI explain button
     var postExplainBtn = document.getElementById('btn-explain-postflop');
@@ -510,13 +516,16 @@ GTO.App = {
       postExplainBtn.addEventListener('click', function() { self._requestAIExplanation('ai-insight-postflop-body'); });
     }
 
+    // Keyboard shortcuts registered dynamically per scenario in _registerPostflopKeys
     GTO.Keyboard.register('drill-postflop', 'x', function() { self._submitPostflopAction('check'); });
-    GTO.Keyboard.register('drill-postflop', '1', function() { self._submitPostflopAction('bet_33'); });
-    GTO.Keyboard.register('drill-postflop', '2', function() { self._submitPostflopAction('bet_67'); });
-    GTO.Keyboard.register('drill-postflop', '3', function() { self._submitPostflopAction('bet_100'); });
     GTO.Keyboard.register('drill-postflop', 'f', function() { self._submitPostflopAction('fold'); });
     GTO.Keyboard.register('drill-postflop', 'c', function() { self._submitPostflopAction('call'); });
     GTO.Keyboard.register('drill-postflop', 'r', function() { self._submitPostflopAction('raise'); });
+    GTO.Keyboard.register('drill-postflop', 'a', function() { self._submitPostflopAction('allin'); });
+    GTO.Keyboard.register('drill-postflop', '1', function() { self._submitPostflopAction('bet_33'); });
+    GTO.Keyboard.register('drill-postflop', '2', function() { self._submitPostflopAction('bet_50'); });
+    GTO.Keyboard.register('drill-postflop', '3', function() { self._submitPostflopAction('bet_67'); });
+    GTO.Keyboard.register('drill-postflop', '4', function() { self._submitPostflopAction('bet_100'); });
   },
 
   _startPostflopSession: function() {
@@ -532,10 +541,22 @@ GTO.App = {
     var formatEl = document.querySelector('#postflop-format-toggle .toggle-option.active');
     var format = formatEl ? formatEl.getAttribute('data-value') : (GTO.State.get('settings.format') || 'cash');
 
+    var matchups = [];
+    document.querySelectorAll('#postflop-matchup-chips .checkbox-chip.checked').forEach(function(c) {
+      matchups.push(c.getAttribute('data-value'));
+    });
+
+    var depths = [];
+    document.querySelectorAll('#postflop-depth-chips .checkbox-chip.checked').forEach(function(c) {
+      depths.push(c.getAttribute('data-value'));
+    });
+
     var config = {
       drillType: 'postflop',
       format: format,
       spotTypes: spotTypes,
+      matchups: matchups.length > 0 ? matchups : undefined,
+      depths: depths.length > 0 ? depths : undefined,
       count: count
     };
 
@@ -601,14 +622,8 @@ GTO.App = {
     if (ipVal) ipVal.textContent = ipAdv + '%';
     if (oopVal) oopVal.textContent = (100 - ipAdv) + '%';
 
-    // Show correct action buttons based on spot type
-    var isFacing = scenario.spotType.indexOf('facing') >= 0;
-    var bettingActions = document.getElementById('postflop-betting-actions');
-    var facingActions = document.getElementById('postflop-facing-actions');
-    if (bettingActions) bettingActions.style.display = isFacing ? 'none' : 'flex';
-    if (facingActions) facingActions.style.display = isFacing ? 'flex' : 'none';
-
-    document.querySelectorAll('#postflop-betting-actions .action-btn, #postflop-facing-actions .action-btn').forEach(function(b) { b.disabled = false; });
+    // Render dynamic action buttons from solver or fallback
+    this._renderPostflopActions(scenario);
 
     var feedbackEl = document.getElementById('postflop-feedback-content');
     if (feedbackEl) feedbackEl.classList.add('hidden');
@@ -618,12 +633,37 @@ GTO.App = {
     GTO.UI.HUD.updateStatusBar(GTO.Engine.DrillEngine.getProgress());
   },
 
+  _renderPostflopActions: function(scenario) {
+    var container = document.getElementById('postflop-dynamic-actions');
+    if (!container) return;
+
+    var actions = GTO.Engine.PostflopDrill.getAvailableActions(scenario.spotType, scenario);
+    var labels = GTO.Engine.PostflopDrill.getActionLabels(scenario.spotType, scenario);
+    var hints = GTO.Engine.PostflopDrill.getActionHints(scenario.spotType, scenario);
+
+    var html = '';
+    actions.forEach(function(key) {
+      var label = labels[key] || key;
+      var hint = hints[key] || '';
+      var btnClass = 'action-btn';
+      if (key === 'check') btnClass += ' btn-check';
+      else if (key === 'fold') btnClass += ' btn-fold';
+      else if (key === 'call') btnClass += ' btn-call';
+      else btnClass += ' btn-raise';
+
+      html += '<button class="' + btnClass + '" data-action="' + key + '">' +
+        '<span class="key-hint">' + hint + '</span> ' + label + '</button>';
+    });
+
+    container.innerHTML = html;
+  },
+
   _submitPostflopAction: function(action) {
     if (!GTO.Engine.DrillEngine.isActive()) return;
     if (GTO.Keyboard.getContext() !== 'drill-postflop') return;
 
     GTO.Engine.DrillEngine.submitAnswer(action);
-    document.querySelectorAll('#postflop-betting-actions .action-btn, #postflop-facing-actions .action-btn').forEach(function(b) { b.disabled = true; });
+    document.querySelectorAll('#postflop-dynamic-actions .action-btn').forEach(function(b) { b.disabled = true; });
     GTO.Keyboard.setContext('result');
   },
 
@@ -637,14 +677,32 @@ GTO.App = {
     var verdictEl = document.getElementById('postflop-verdict');
     if (verdictEl) {
       verdictEl.className = 'verdict ' + GTO.Engine.Scoring.getVerdictClass(result.verdict);
+      var dataSourceBadge = '';
+      if (result.dataSource) {
+        var isSolver = result.dataSource === 'solver';
+        dataSourceBadge = '<span style="font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; margin-left:8px; letter-spacing:0.05em; ' +
+          (isSolver ? 'background:rgba(74,246,195,0.15); color:var(--green);' : 'background:rgba(255,215,0,0.15); color:var(--orange);') +
+          '">' + result.dataSource.toUpperCase() + '</span>';
+        if (!isSolver && scenario && scenario.matchup) {
+          dataSourceBadge += '<button class="solver-action-btn" id="btn-solve-drill" ' +
+            'style="margin-left:6px; font-size:9px; padding:1px 6px; vertical-align:middle;">SOLVE</button>';
+        }
+      }
       var verdictHtml = '<span class="verdict-icon">' + GTO.Engine.Scoring.getVerdictIcon(result.verdict) + '</span> ' +
-        result.userAction.toUpperCase() + ' — ' + GTO.Engine.Scoring.getVerdictLabel(result.verdict);
+        result.userAction.toUpperCase() + ' — ' + GTO.Engine.Scoring.getVerdictLabel(result.verdict) + dataSourceBadge;
       if (result.verdict !== 'optimal' && result.bestAction) {
-        var betLabel = result.bestAction.replace('bet_33', 'Bet 1/3').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Bet Pot').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise');
+        var betLabel = result.bestAction.replace('bet_33', 'Bet 1/3').replace('bet_50', 'Bet 1/2').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Bet Pot').replace('allin', 'All-in').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise');
         verdictHtml += '<div style="font-size:11px; font-weight:400; margin-top:4px; opacity:0.85;">GTO prefers <strong>' +
           betLabel + '</strong> (' + Math.round((result.bestFreq || 0) * 100) + '% frequency)</div>';
       }
       verdictEl.innerHTML = verdictHtml;
+
+      // Attach live solve handler
+      var solveBtn = document.getElementById('btn-solve-drill');
+      if (solveBtn) {
+        var self = this;
+        solveBtn.addEventListener('click', function() { self._solveDrillSpot(); });
+      }
     }
 
     // Render frequency bars for postflop
@@ -654,7 +712,7 @@ GTO.App = {
       var html = '';
       Object.keys(freqs).forEach(function(action) {
         var pct = Math.round(freqs[action] * 100);
-        var label = action.replace('bet_', 'B').replace('check', 'Chk').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise');
+        var label = action.replace('bet_', 'B').replace('check', 'Chk').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise').replace('allin', 'All-in');
         html += '<div class="freq-bar-item">' +
           '<span class="freq-bar-label">' + label + '</span>' +
           '<div class="freq-bar-track"><div class="freq-bar-fill fill-bet" style="width:' + pct + '%"></div></div>' +
@@ -662,6 +720,37 @@ GTO.App = {
         '</div>';
       });
       barsContainer.innerHTML = html;
+    }
+
+    // Range composition summary line
+    var compLine = document.getElementById('drill-composition-line');
+    var compText = document.getElementById('drill-composition-text');
+    if (compLine && compText && scenario && GTO.Engine.RangeFilter && GTO.Engine.RangeFilter.analyzeComposition) {
+      var compVisible = false;
+      if (scenario.preflopContext && scenario.preflopAction) {
+        var isIP = scenario.heroPosition === 'BTN' || scenario.heroPosition === 'CO';
+        var side = isIP ? 'ip' : 'oop';
+        var heroCtx = scenario.preflopContext[side + 'Context'];
+        var heroPos = scenario.preflopContext[side + 'Position'];
+        var heroRange = GTO.Engine.RangeFilter.buildActionRange(
+          scenario.format || 'cash', scenario.depth || '100bb', heroCtx, heroPos, scenario.preflopAction
+        );
+        var boardObjs = (scenario.boardCards || []).map(function(c) {
+          return typeof c === 'string' ? { rank: c[0], suit: c[1] } : c;
+        });
+        var comp = GTO.Engine.RangeFilter.analyzeComposition(heroRange, boardObjs);
+        if (comp.total > 0) {
+          var parts = [];
+          if (Math.round(comp.monsters * 100) > 0) parts.push(Math.round(comp.monsters * 100) + '% monsters');
+          if (Math.round(comp.strong * 100) > 0) parts.push(Math.round(comp.strong * 100) + '% strong');
+          if (Math.round(comp.draws * 100) > 0) parts.push(Math.round(comp.draws * 100) + '% draws');
+          if (Math.round(comp.air * 100) > 0) parts.push(Math.round(comp.air * 100) + '% air');
+          compText.textContent = parts.join(', ');
+          compLine.style.display = '';
+          compVisible = true;
+        }
+      }
+      if (!compVisible) compLine.style.display = 'none';
     }
 
     GTO.UI.HUD.updateStatusBar(GTO.Engine.DrillEngine.getProgress());
@@ -677,6 +766,84 @@ GTO.App = {
 
   _renderPostflopSessionEnd: function(session) {
     this._showSessionSummary(session, 'postflop');
+  },
+
+  _solveDrillSpot: function() {
+    var scenario = this._lastScenario;
+    var userAction = this._lastResult ? this._lastResult.userAction : null;
+    if (!scenario || !userAction) return;
+
+    // Show spinner on button
+    var btn = document.getElementById('btn-solve-drill');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="solver-spinner"></span>';
+    }
+
+    var self = this;
+    var boardCards = scenario.boardCards;
+    // Ensure string format
+    if (boardCards && boardCards.length > 0 && typeof boardCards[0] !== 'string') {
+      boardCards = boardCards.map(function(c) {
+        return (c.rank || c.r || '') + (c.suit || c.s || '');
+      });
+    }
+
+    GTO.Engine.PostflopLookup.solveLive({
+      spotType: scenario.spotType,
+      boardCards: boardCards,
+      matchup: scenario.matchup,
+      depth: scenario.depth
+    }, function(solverResult) {
+      if (!solverResult) {
+        if (btn) { btn.textContent = 'FAILED'; btn.style.color = 'var(--red)'; }
+        return;
+      }
+
+      // Re-score with solver data — apply ICM if MTT
+      var scoringFreqs = solverResult.freqs;
+      var icmEnabled = scenario.format === 'mtt' && scenario.icmContext &&
+        GTO.Engine.ICM && GTO.State.get('icmEnabled') !== false;
+      if (icmEnabled && scoringFreqs && scenario.icmContext.bubbleFactor > 1.0) {
+        var icmSpot = GTO.Engine.ICM.resolveSpotType(scenario);
+        scoringFreqs = GTO.Engine.ICM.adjustFrequencies(scoringFreqs, scenario.icmContext.bubbleFactor, icmSpot);
+      }
+      // Range composition adjustment
+      if (scoringFreqs && scenario.preflopContext && scenario.preflopAction &&
+          GTO.Engine.RangeFilter && GTO.Engine.RangeFilter.adjustForComposition) {
+        var isIP = scenario.heroPosition === 'BTN' || scenario.heroPosition === 'CO';
+        var side = isIP ? 'ip' : 'oop';
+        var heroCtx = scenario.preflopContext[side + 'Context'];
+        var heroPos = scenario.preflopContext[side + 'Position'];
+        var heroRange = GTO.Engine.RangeFilter.buildActionRange(
+          scenario.format || 'cash', scenario.depth || '100bb', heroCtx, heroPos, scenario.preflopAction
+        );
+        var boardObjs = (scenario.boardCards || []).map(function(c) {
+          return typeof c === 'string' ? { rank: c[0], suit: c[1] } : c;
+        });
+        var comp = GTO.Engine.RangeFilter.analyzeComposition(heroRange, boardObjs);
+        if (comp.total > 0) {
+          scoringFreqs = GTO.Engine.RangeFilter.adjustForComposition(scoringFreqs, comp, scenario.spotType);
+        }
+      }
+      var newResult = GTO.Engine.Scoring.scorePostflop(
+        scoringFreqs, userAction, { potSize: scenario.potSize || 6.5 }
+      );
+      newResult.dataSource = 'solver';
+      if (icmEnabled) {
+        newResult.rawGtoFreqs = solverResult.freqs;
+        GTO.Engine.Scoring.scoreWithICM(newResult, scenario.icmContext, 0.5);
+      }
+
+      // Update stored result
+      self._lastResult = newResult;
+      self._renderPostflopResult(newResult, scenario);
+    }, function(progress) {
+      // Update button with progress
+      if (btn && progress && progress.pctDone !== undefined) {
+        btn.innerHTML = '<span class="solver-spinner"></span> ' + Math.round(progress.pctDone) + '%';
+      }
+    });
   },
 
   _setupTournamentDrill: function() {
@@ -715,14 +882,42 @@ GTO.App = {
   },
 
   _startTournamentSession: function() {
+    // Read stack range from chips
+    var stackVals = [];
+    document.querySelectorAll('#mtt-stack-chips .checkbox-chip.checked').forEach(function(c) {
+      stackVals.push(parseInt(c.getAttribute('data-value')));
+    });
+    var stackMin = stackVals.length > 0 ? Math.min.apply(null, stackVals) : 5;
+    var stackMax = stackVals.length > 0 ? Math.max.apply(null, stackVals) : 20;
+
+    // Read positions
+    var positions = [];
+    document.querySelectorAll('#mtt-position-chips .checkbox-chip.checked').forEach(function(c) {
+      positions.push(c.getAttribute('data-value'));
+    });
+    if (positions.length === 0) positions = GTO.Data.POSITIONS.slice();
+
+    // Read stage
+    var stageEl = document.querySelector('#mtt-stage-toggle .toggle-option.active');
+    var stage = stageEl ? stageEl.getAttribute('data-value') : 'normal';
+
+    // Read drill count
+    var countEl = document.querySelector('#mtt-drill-count .toggle-option.active');
+    var count = countEl ? parseInt(countEl.getAttribute('data-value')) : 30;
+
+    // Read payout structure
+    var structEl = document.querySelector('#mtt-structure-toggle .toggle-option.active');
+    var structureKey = structEl ? structEl.getAttribute('data-value') : '9max_sng';
+
     var config = {
       drillType: 'tournament',
       format: 'mtt',
-      stackMin: 5,
-      stackMax: 20,
-      positions: GTO.Data.POSITIONS.slice(),
-      stage: 'normal',
-      count: 30
+      stackMin: stackMin,
+      stackMax: stackMax,
+      positions: positions,
+      stage: stage,
+      structureKey: structureKey,
+      count: count
     };
 
     var self = this;
@@ -748,6 +943,43 @@ GTO.App = {
     GTO.UI.HUD.updateStat('mtt-position', scenario.position);
     GTO.UI.HUD.updateStat('mtt-stack', scenario.stackBB + 'bb');
     GTO.UI.HUD.updateStat('mtt-players', (scenario.playersLeft || '--') + ' left');
+
+    // Payout structure label
+    if (scenario.payoutStructure) {
+      var paidSpots = scenario.payoutStructure.payouts.length;
+      GTO.UI.HUD.updateStat('mtt-payouts', scenario.payoutStructure.label + ' (' + paidSpots + ' paid)');
+    }
+
+    // ICM pressure & bubble factor badges
+    if (scenario.icmPressure !== null && scenario.icmPressure !== undefined) {
+      var pressLabel = GTO.Engine.ICM.pressureLabel(scenario.icmPressure);
+      var pressColor = GTO.Engine.ICM.pressureColor(scenario.icmPressure);
+      GTO.UI.HUD.updateStat('mtt-pressure-badge',
+        '<span class="' + pressColor + '">' + pressLabel + ' (' + scenario.icmPressure + ')</span>');
+    }
+    if (scenario.bubbleFactor !== null && scenario.bubbleFactor !== undefined) {
+      var bfClass = scenario.bubbleFactor >= 1.5 ? 'pressure-high' : (scenario.bubbleFactor >= 1.2 ? 'pressure-moderate' : 'pressure-low');
+      GTO.UI.HUD.updateStat('mtt-bf-badge',
+        '<span class="' + bfClass + '">' + scenario.bubbleFactor.toFixed(2) + 'x</span>');
+    }
+
+    // Table stacks mini display
+    if (scenario.tableStacks) {
+      var stacksEl = document.getElementById('mtt-table-stacks');
+      var listEl = document.getElementById('mtt-stacks-list');
+      if (stacksEl && listEl) {
+        stacksEl.classList.remove('hidden');
+        var html = '';
+        var posLabels = ['P1','P2','P3','P4','P5','P6','P7','P8','P9'];
+        for (var i = 0; i < scenario.tableStacks.length; i++) {
+          var isHero = i === scenario.heroIdx;
+          html += '<span style="padding:2px 6px; border-radius:3px; ' +
+            (isHero ? 'background:var(--accent); color:var(--bg-primary); font-weight:bold;' : 'background:var(--bg-tertiary);') +
+            '">' + (isHero ? 'H' : posLabels[i]) + ':' + scenario.tableStacks[i] + 'bb</span>';
+        }
+        listEl.innerHTML = html;
+      }
+    }
 
     document.querySelectorAll('#mtt-actions-pushfold .action-btn, #mtt-actions-deep .action-btn').forEach(function(b) { b.disabled = false; });
     var mttFeedback = document.getElementById('mtt-feedback-content');
@@ -775,6 +1007,34 @@ GTO.App = {
       verdictEl.className = 'verdict ' + GTO.Engine.Scoring.getVerdictClass(result.verdict);
       verdictEl.innerHTML = '<span class="verdict-icon">' + GTO.Engine.Scoring.getVerdictIcon(result.verdict) + '</span> ' +
         'You chose ' + (result.userAction || '?').toUpperCase() + ' — Nash says ' + (result.correctAction || '?').toUpperCase();
+    }
+
+    // Populate push/fold frequency bars
+    var pushFreq = result.correctAction === 'push' ? 100 : 0;
+    var foldFreq = result.correctAction === 'fold' ? 100 : 0;
+    var pushBar = document.getElementById('mtt-freq-push');
+    var foldBar = document.getElementById('mtt-freq-fold');
+    if (pushBar) pushBar.style.width = pushFreq + '%';
+    if (foldBar) foldBar.style.width = foldFreq + '%';
+    GTO.UI.HUD.updateStat('mtt-freq-push-val', pushFreq + '%');
+    GTO.UI.HUD.updateStat('mtt-freq-fold-val', foldFreq + '%');
+
+    // Populate ICM stats
+    if (result.hasICM) {
+      GTO.UI.HUD.updateStat('mtt-cev', (result.chipEV >= 0 ? '+' : '') + result.chipEV.toFixed(2) + 'bb');
+      GTO.UI.HUD.updateStat('mtt-icev', (result.icmEV >= 0 ? '+' : '') + '$' + result.icmEV.toFixed(2));
+      GTO.UI.HUD.updateStat('mtt-ev-loss', result.evLoss !== 0 ? result.evLoss.toFixed(2) + 'bb' : '0.00bb');
+      GTO.UI.HUD.updateStat('mtt-icm-pressure',
+        '<span class="' + result.pressureColor + '">' + result.pressureLabel + ' (' + result.icmPressure + ')</span>');
+      GTO.UI.HUD.updateStat('mtt-bubble-factor', result.bubbleFactor.toFixed(2) + 'x');
+      GTO.UI.HUD.updateStat('mtt-icm-tax', result.icmTax ? ('$' + result.icmTax.toFixed(2)) : '--');
+    } else {
+      GTO.UI.HUD.updateStat('mtt-cev', result.evLoss ? result.evLoss.toFixed(2) + 'bb' : '0.00bb');
+      GTO.UI.HUD.updateStat('mtt-icev', '--');
+      GTO.UI.HUD.updateStat('mtt-ev-loss', result.evLoss ? result.evLoss.toFixed(2) + 'bb' : '0.00bb');
+      GTO.UI.HUD.updateStat('mtt-icm-pressure', '--');
+      GTO.UI.HUD.updateStat('mtt-bubble-factor', '--');
+      GTO.UI.HUD.updateStat('mtt-icm-tax', '--');
     }
 
     GTO.UI.HUD.updateStatusBar(GTO.Engine.DrillEngine.getProgress());
@@ -851,11 +1111,13 @@ GTO.App = {
 
     GTO.Keyboard.register('play-postflop', 'x', function() { self._submitPlayAction('check'); });
     GTO.Keyboard.register('play-postflop', '1', function() { self._submitPlayAction('bet_33'); });
-    GTO.Keyboard.register('play-postflop', '2', function() { self._submitPlayAction('bet_67'); });
-    GTO.Keyboard.register('play-postflop', '3', function() { self._submitPlayAction('bet_100'); });
+    GTO.Keyboard.register('play-postflop', '2', function() { self._submitPlayAction('bet_50'); });
+    GTO.Keyboard.register('play-postflop', '3', function() { self._submitPlayAction('bet_67'); });
+    GTO.Keyboard.register('play-postflop', '4', function() { self._submitPlayAction('bet_100'); });
     GTO.Keyboard.register('play-postflop', 'f', function() { self._submitPlayAction('fold'); });
     GTO.Keyboard.register('play-postflop', 'c', function() { self._submitPlayAction('call'); });
     GTO.Keyboard.register('play-postflop', 'r', function() { self._submitPlayAction('raise'); });
+    GTO.Keyboard.register('play-postflop', 'a', function() { self._submitPlayAction('allin'); });
 
     GTO.Keyboard.register('play-end', 'n', function() { self._startPlaythrough(); });
     GTO.Keyboard.register('play-end', ' ', function() { self._startPlaythrough(); });
@@ -960,12 +1222,48 @@ GTO.App = {
         '<button class="action-btn btn-call" data-action="call"><span class="key-hint">C</span> <span class="action-label">Call</span></button>' +
         '<button class="action-btn btn-raise" data-action="raise"><span class="key-hint">R</span> <span class="action-label">Raise</span></button>';
     } else {
-      // Postflop streets: check/bet sizing
-      html =
-        '<button class="action-btn btn-check" data-action="check"><span class="key-hint">X</span> Check</button>' +
-        '<button class="action-btn btn-raise" data-action="bet_33"><span class="key-hint">1</span> 1/3</button>' +
-        '<button class="action-btn btn-raise" data-action="bet_67"><span class="key-hint">2</span> 2/3</button>' +
-        '<button class="action-btn btn-raise" data-action="bet_100"><span class="key-hint">3</span> Pot</button>';
+      // Postflop: try to get solver actions for this exact spot
+      var hand = GTO.Engine.HandPlaythrough.getHand();
+      var solverActions = null;
+      if (hand && hand.matchup && GTO.Engine.PostflopLookup) {
+        var isIP = hand.heroPosition === 'BTN' || hand.heroPosition === 'CO';
+        var spotType = (isIP ? 'IP_' : 'OOP_') + 'cbet_flop';
+        if (street === 'turn') spotType = (isIP ? 'IP_' : 'OOP_') + 'turn_barrel';
+        if (street === 'river') spotType = (isIP ? 'IP_' : 'OOP_') + 'river_bet';
+
+        var boardStrCards = hand.board.map(function(c) {
+          return (c.rank || c.r || '') + (c.suit || c.s || '');
+        });
+        var lookupResult = GTO.Engine.PostflopLookup.lookup({
+          spotType: spotType,
+          boardTexture: GTO.Data.BoardCategories ? GTO.Data.BoardCategories.classify(hand.board) : null,
+          handStrength: null,
+          spr: hand.effectiveStack / hand.pot,
+          boardCards: boardStrCards,
+          matchup: hand.matchup,
+          depth: hand.stackDepth
+        });
+        if (lookupResult.actions) {
+          solverActions = lookupResult.actions;
+        }
+      }
+
+      if (solverActions && solverActions.length > 0) {
+        solverActions.forEach(function(a) {
+          var btnClass = 'action-btn';
+          if (a.key === 'check') btnClass += ' btn-check';
+          else if (a.key === 'fold') btnClass += ' btn-fold';
+          else if (a.key === 'call') btnClass += ' btn-call';
+          else btnClass += ' btn-raise';
+          html += '<button class="' + btnClass + '" data-action="' + a.key + '"><span class="key-hint">' + a.hint + '</span> ' + a.label + '</button>';
+        });
+      } else {
+        html =
+          '<button class="action-btn btn-check" data-action="check"><span class="key-hint">X</span> Check</button>' +
+          '<button class="action-btn btn-raise" data-action="bet_33"><span class="key-hint">1</span> 1/3</button>' +
+          '<button class="action-btn btn-raise" data-action="bet_67"><span class="key-hint">2</span> 2/3</button>' +
+          '<button class="action-btn btn-raise" data-action="bet_100"><span class="key-hint">3</span> Pot</button>';
+      }
     }
 
     container.innerHTML = html;
@@ -1063,6 +1361,95 @@ GTO.App = {
     slot.innerHTML = '<span class="card-rank">' + card.rank + '</span><span class="card-suit">' + symbol + '</span>';
   },
 
+  _solvePlaySpot: function(street, hand, userAction) {
+    if (!hand) return;
+
+    // Show spinner on button
+    var btn = document.getElementById('btn-solve-play');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="solver-spinner"></span>';
+    }
+
+    // Derive spot type from street + position
+    var isIP = hand.heroPosition === 'BTN' || hand.heroPosition === 'CO';
+    var spotType;
+    if (street === 'flop') spotType = (isIP ? 'IP_' : 'OOP_') + 'cbet_flop';
+    else if (street === 'turn') spotType = (isIP ? 'IP_' : 'OOP_') + 'turn_barrel';
+    else spotType = (isIP ? 'IP_' : 'OOP_') + 'river_bet';
+
+    // Convert board card objects to strings
+    var boardCards = hand.board.map(function(c) {
+      return (c.rank || c.r || '') + (c.suit || c.s || '');
+    });
+
+    // Resolve matchup if not available
+    var matchup = hand.matchup;
+    if (!matchup && GTO.Engine.PostflopLookup) {
+      matchup = GTO.Engine.PostflopLookup.resolveMatchup(hand.heroPosition, !isIP);
+    }
+    if (!matchup) {
+      if (btn) { btn.textContent = 'NO DATA'; btn.style.color = 'var(--red)'; }
+      return;
+    }
+
+    var self = this;
+    GTO.Engine.PostflopLookup.solveLive({
+      spotType: spotType,
+      boardCards: boardCards,
+      matchup: matchup,
+      depth: hand.stackDepth
+    }, function(solverResult) {
+      if (!solverResult) {
+        if (btn) { btn.textContent = 'FAILED'; btn.style.color = 'var(--red)'; }
+        return;
+      }
+
+      // Re-score with solver data — apply ICM if MTT
+      var scoringFreqs = solverResult.freqs;
+      var icmEnabled = hand.format === 'mtt' && GTO.Engine.ICM &&
+        GTO.State.get('icmEnabled') !== false;
+      if (icmEnabled && scoringFreqs) {
+        var bf = self._getExploreBubbleFactor();
+        if (bf > 1.0) {
+          var icmSpot = (spotType && spotType.indexOf('facing') >= 0) ? 'postflop_facing' : 'postflop_bet';
+          scoringFreqs = GTO.Engine.ICM.adjustFrequencies(scoringFreqs, bf, icmSpot);
+        }
+      }
+      var newResult = GTO.Engine.Scoring.scorePostflop(
+        scoringFreqs, userAction, { potSize: hand.pot }
+      );
+      newResult.dataSource = 'solver';
+      if (icmEnabled) {
+        newResult.rawGtoFreqs = solverResult.freqs;
+        // Generate ICM context for overlay
+        var structure = GTO.Data.TournamentStructures.get(hand.structureKey || '9max_sng');
+        var stackBB = parseInt(hand.stackDepth) || 25;
+        var stacks = GTO.Data.TournamentStructures.generateTableStacks({
+          players: structure.players, heroIdx: 0, heroStackBB: stackBB, avgStackBB: stackBB, stage: 'normal'
+        });
+        var prizes = GTO.Data.TournamentStructures.getPrizes(hand.structureKey || '9max_sng', 100);
+        var icmCtx = {
+          heroIdx: 0, stacks: stacks, prizes: prizes,
+          prizePool: prizes.reduce(function(a,b){return a+b;},0), potSize: hand.pot,
+          heroEquity: GTO.Engine.ICM.calculateEquities(stacks, prizes)[0],
+          bubbleFactor: GTO.Engine.ICM.bubbleFactor(0, stacks, prizes, hand.pot),
+          icmPressure: GTO.Engine.ICM.pressure(0, stacks, prizes),
+          pressureLabel: GTO.Engine.ICM.pressureLabel(GTO.Engine.ICM.pressure(0, stacks, prizes)),
+          pressureColor: GTO.Engine.ICM.pressureColor(GTO.Engine.ICM.pressure(0, stacks, prizes))
+        };
+        GTO.Engine.Scoring.scoreWithICM(newResult, icmCtx, 0.5);
+      }
+
+      // Re-render feedback
+      self._renderPlayFeedback(street, hand, newResult, userAction);
+    }, function(progress) {
+      if (btn && progress && progress.pctDone !== undefined) {
+        btn.innerHTML = '<span class="solver-spinner"></span> ' + Math.round(progress.pctDone) + '%';
+      }
+    });
+  },
+
   _endPlaythrough: function(hand) {
     GTO.Keyboard.setContext('play-end');
 
@@ -1133,6 +1520,19 @@ GTO.App = {
         actionContext: 'rfi'
       };
       var rangeData = GTO.Engine.PreflopDrill.getRangeForScenario(scenario);
+
+      // ICM adjustment for MTT play mode
+      if (hand.format === 'mtt' && GTO.Engine.ICM && GTO.State.get('icmEnabled') !== false) {
+        var bf = this._getExploreBubbleFactor();
+        if (bf > 1.0) {
+          GTO.Data.ALL_HANDS.forEach(function(h) {
+            if (rangeData[h]) {
+              rangeData[h] = GTO.Engine.ICM.adjustFrequencies(rangeData[h], bf, 'preflop_rfi');
+            }
+          });
+        }
+      }
+
       GTO.UI.HandMatrix.updateMatrix('play-matrix-table', rangeData, null, hand.hand);
       GTO.UI.HandMatrix.updateSummaryBar('play-summary-bar', rangeData);
     } catch (e) {
@@ -1192,6 +1592,50 @@ GTO.App = {
       if (oopBar) oopBar.style.width = (100 - ipAdv) + '%';
       if (ipVal) ipVal.textContent = ipAdv + '%';
       if (oopVal) oopVal.textContent = (100 - ipAdv) + '%';
+
+      // Show hero's narrowed range based on preflop action (multi-street consistency)
+      var pathHeader = document.getElementById('play-preflop-path-header');
+      var pathStats = document.getElementById('play-preflop-path-stats');
+      if (pathHeader && pathStats && hand.preflopContext && hand.preflopAction && GTO.Engine.RangeFilter) {
+        var heroSide = isIP ? 'ip' : 'oop';
+        var heroCtx = hand.preflopContext[heroSide + 'Context'];
+        var heroPos = hand.preflopContext[heroSide + 'Position'];
+        var filteredRange = GTO.Engine.RangeFilter.buildActionRange(
+          hand.format, hand.stackDepth, heroCtx, heroPos, hand.preflopAction
+        );
+        var rangeSize = GTO.Engine.RangeFilter.getRangeSize(filteredRange);
+        var handCount = Object.keys(filteredRange).length;
+        GTO.UI.HUD.updateStat('play-range-action', hand.preflopAction.toUpperCase() + ' range');
+        GTO.UI.HUD.updateStat('play-range-count', handCount + ' hands (' + rangeSize + ' combos)');
+        pathHeader.style.display = '';
+        pathStats.style.display = '';
+
+        // Range composition analysis
+        var compHeader = document.getElementById('play-composition-header');
+        var compBars = document.getElementById('play-composition-bars');
+        if (compHeader && compBars && GTO.Engine.RangeFilter.analyzeComposition) {
+          var comp = GTO.Engine.RangeFilter.analyzeComposition(filteredRange, hand.board);
+          if (comp.total > 0) {
+            var buckets = ['monsters','strong','medium','draws','weak','air'];
+            for (var bi = 0; bi < buckets.length; bi++) {
+              var pct = Math.round(comp[buckets[bi]] * 100);
+              var bar = document.getElementById('play-comp-' + buckets[bi]);
+              var val = document.getElementById('play-comp-' + buckets[bi] + '-val');
+              if (bar) bar.style.width = pct + '%';
+              if (val) val.textContent = pct + '%';
+            }
+            compHeader.style.display = '';
+            compBars.style.display = '';
+          }
+        }
+      } else if (pathHeader && pathStats) {
+        pathHeader.style.display = 'none';
+        pathStats.style.display = 'none';
+        var compH = document.getElementById('play-composition-header');
+        var compB = document.getElementById('play-composition-bars');
+        if (compH) compH.style.display = 'none';
+        if (compB) compB.style.display = 'none';
+      }
     } catch (e) {
       // Silently handle postflop rendering errors
     }
@@ -1211,7 +1655,7 @@ GTO.App = {
       } else {
         Object.keys(freqs).forEach(function(act) {
           var pct = Math.round(freqs[act] * 100);
-          var label = act.replace('bet_33', 'Bet 1/3').replace('bet_50', 'Bet 1/2').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Pot').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise');
+          var label = act.replace('bet_33', 'Bet 1/3').replace('bet_50', 'Bet 1/2').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Pot').replace('allin', 'All-in').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise');
           var fillClass = act === 'check' ? 'fill-check' : (act === 'fold' ? 'fill-fold' : 'fill-bet');
           html += '<div class="freq-bar-item"><span class="freq-bar-label">' + label + '</span><div class="freq-bar-track"><div class="freq-bar-fill ' + fillClass + '" style="width:' + pct + '%"></div></div><span class="freq-bar-value">' + pct + '%</span></div>';
         });
@@ -1223,20 +1667,51 @@ GTO.App = {
     var verdictEl = document.getElementById('play-verdict');
     if (verdictEl) {
       verdictEl.className = 'verdict ' + GTO.Engine.Scoring.getVerdictClass(result.verdict);
+      var dataSourceBadge = '';
+      if (result.dataSource) {
+        var isSolver = result.dataSource === 'solver';
+        dataSourceBadge = '<span style="font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; margin-left:8px; letter-spacing:0.05em; ' +
+          (isSolver ? 'background:rgba(74,246,195,0.15); color:var(--green);' : 'background:rgba(255,215,0,0.15); color:var(--orange);') +
+          '">' + result.dataSource.toUpperCase() + '</span>';
+        if (!isSolver) {
+          dataSourceBadge += '<button class="solver-action-btn" id="btn-solve-play" ' +
+            'style="margin-left:6px; font-size:9px; padding:1px 6px; vertical-align:middle;">SOLVE</button>';
+        }
+      }
       var actionLabel = (result.userAction || action).toUpperCase();
       var verdictHtml = '<span class="verdict-icon">' + GTO.Engine.Scoring.getVerdictIcon(result.verdict) + '</span> ' +
-        actionLabel + ' — ' + GTO.Engine.Scoring.getVerdictLabel(result.verdict);
+        actionLabel + ' — ' + GTO.Engine.Scoring.getVerdictLabel(result.verdict) + dataSourceBadge;
       if (result.verdict !== 'optimal' && result.bestAction) {
-        var bestLabel = result.bestAction.replace('bet_33', 'Bet 1/3').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Bet Pot').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise').toUpperCase();
+        var bestLabel = result.bestAction.replace('bet_33', 'Bet 1/3').replace('bet_50', 'Bet 1/2').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Bet Pot').replace('allin', 'All-in').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise').toUpperCase();
         verdictHtml += '<div style="font-size:11px; font-weight:400; margin-top:4px; opacity:0.85;">GTO prefers <strong>' +
           bestLabel + '</strong> (' + Math.round((result.bestFreq || 0) * 100) + '% frequency)</div>';
       }
       verdictEl.innerHTML = verdictHtml;
+
+      // Attach live solve handler for play mode
+      var solveBtn = document.getElementById('btn-solve-play');
+      if (solveBtn) {
+        var self = this;
+        solveBtn.addEventListener('click', function() { self._solvePlaySpot(street, hand, action); });
+      }
     }
 
     // EV stats
     GTO.UI.HUD.updateStat('play-ev-optimal', result.bestAction ? result.bestAction.toUpperCase() : '--');
     GTO.UI.HUD.updateStat('play-ev-loss', GTO.Utils.formatEV(result.evLoss));
+
+    // ICM stats for Play mode
+    var playIcmStats = document.getElementById('play-icm-stats');
+    if (result.hasICM && playIcmStats) {
+      playIcmStats.classList.remove('hidden');
+      GTO.UI.HUD.updateStat('play-icm-pressure',
+        '<span class="' + result.pressureColor + '">' + result.pressureLabel + ' (' + result.icmPressure + ')</span>');
+      GTO.UI.HUD.updateStat('play-bubble-factor', result.bubbleFactor.toFixed(2) + 'x');
+      GTO.UI.HUD.updateStat('play-icm-ev', (result.icmEV >= 0 ? '+' : '') + '$' + result.icmEV.toFixed(2));
+      GTO.UI.HUD.updateStat('play-icm-tax', result.icmTax ? ('$' + result.icmTax.toFixed(2)) : '--');
+    } else if (playIcmStats) {
+      playIcmStats.classList.add('hidden');
+    }
 
     // Position context bar
     try {
@@ -1436,6 +1911,58 @@ GTO.App = {
     }
   },
 
+  // ═══════════════════ ICM TOGGLE ═══════════════════
+  _setupICMToggle: function() {
+    var self = this;
+
+    // Default ICM enabled
+    GTO.State.set('icmEnabled', true);
+
+    // All ICM toggle checkboxes sync to one state
+    var checkboxIds = ['explore-icm-check', 'preflop-icm-check', 'play-icm-check', 'postflop-icm-check', 'solver-icm-check'];
+    checkboxIds.forEach(function(id) {
+      var cb = document.getElementById(id);
+      if (cb) {
+        cb.addEventListener('change', function() {
+          GTO.State.set('icmEnabled', this.checked);
+          // Sync all checkboxes
+          checkboxIds.forEach(function(otherId) {
+            var other = document.getElementById(otherId);
+            if (other) other.checked = GTO.State.get('icmEnabled');
+          });
+          // Refresh explore matrix if visible
+          if (self._updateExploreMatrix) self._updateExploreMatrix();
+        });
+      }
+    });
+
+    // Show/hide ICM toggle when format changes
+    var formatGroups = [
+      { toggle: 'explore-format', icm: 'explore-icm-toggle' },
+      { toggle: 'preflop-format-toggle', icm: 'preflop-icm-toggle' },
+      { toggle: 'play-format-toggle', icm: 'play-icm-toggle' },
+      { toggle: 'postflop-format-toggle', icm: 'postflop-icm-toggle' },
+      { toggle: 'solver-format', icm: 'solver-icm-toggle' }
+    ];
+
+    formatGroups.forEach(function(fg) {
+      var group = document.getElementById(fg.toggle);
+      var icmEl = document.getElementById(fg.icm);
+      if (!group || !icmEl) return;
+
+      group.querySelectorAll('.toggle-option').forEach(function(opt) {
+        opt.addEventListener('click', function() {
+          var val = this.getAttribute('data-value');
+          if (val === 'mtt') {
+            icmEl.classList.remove('hidden');
+          } else {
+            icmEl.classList.add('hidden');
+          }
+        });
+      });
+    });
+  },
+
   // ═══════════════════ EXPLORE VIEW ═══════════════════
   _setupExplore: function() {
     var self = this;
@@ -1505,7 +2032,7 @@ GTO.App = {
         }
 
         // Skip solver toggles — handled by dedicated listeners below
-        if (group.id === 'solver-depth' || group.id === 'solver-matchup') {
+        if (group.id === 'solver-depth' || group.id === 'solver-matchup' || group.id === 'solver-format') {
           return;
         }
 
@@ -1530,13 +2057,21 @@ GTO.App = {
       });
     }
 
+    // Wire "View Postflop" button
+    var postflopBtn = document.getElementById('explore-view-postflop');
+    if (postflopBtn) {
+      postflopBtn.addEventListener('click', function() {
+        self._transitionToPostflopExplore();
+      });
+    }
+
     // Initial render
     this._updateExploreMatrix();
 
     // ── Solver filter auto-trigger wiring ──
     // These use MutationObserver-style approach: the general toggle handler above
     // sets .active, then we detect the change and trigger _autoSolve.
-    ['solver-depth', 'solver-matchup'].forEach(function(groupId) {
+    ['solver-depth', 'solver-matchup', 'solver-format'].forEach(function(groupId) {
       var group = document.getElementById(groupId);
       if (!group) return;
       // Track the current active value so we can detect changes
@@ -1599,12 +2134,28 @@ GTO.App = {
       // Build range data for the scenario
       var scenario = { format: format, stackDepth: stack, actionContext: actionCtx, position: position, positionKey: positionKey };
       var rangeData = GTO.Engine.PreflopDrill.getRangeForScenario(scenario);
+
+      // ICM adjustment: tighten ranges when format=mtt and ICM enabled
+      var icmLabel = '';
+      if (format === 'mtt' && GTO.Engine.ICM && GTO.State.get('icmEnabled') !== false) {
+        var bf = this._getExploreBubbleFactor();
+        if (bf > 1.0) {
+          var icmSpotType = (actionCtx === 'rfi') ? 'preflop_rfi' : 'preflop_call';
+          GTO.Data.ALL_HANDS.forEach(function(h) {
+            if (rangeData[h]) {
+              rangeData[h] = GTO.Engine.ICM.adjustFrequencies(rangeData[h], bf, icmSpotType);
+            }
+          });
+          icmLabel = ' [ICM BF:' + bf.toFixed(1) + 'x]';
+        }
+      }
+
       var activeHand = this._exploreActiveHand || null;
       GTO.UI.HandMatrix.updateMatrix('explore-matrix-table', rangeData, null, activeHand);
 
       // Update label
       var label = document.getElementById('explore-matrix-label');
-      if (label) label.textContent = actionCtx.toUpperCase().replace('_', ' ') + ' — ' + position + ' — ' + stack;
+      if (label) label.textContent = actionCtx.toUpperCase().replace('_', ' ') + ' — ' + position + ' — ' + stack + icmLabel;
 
       // Update combo count — count all non-fold combos (raise + call)
       this._exploreRangeData = rangeData;
@@ -1624,23 +2175,33 @@ GTO.App = {
       if (pctEl) pctEl.textContent = (totalCombos > 0 ? (combos / totalCombos * 100).toFixed(1) : '0') + '%';
 
     } else {
-      // Push/fold mode
+      // Push/fold mode (always tournament context)
       var pfStackEl = document.querySelector('#explore-pf-stack .toggle-option.active');
       var pfPosEl = document.querySelector('#explore-pf-position .toggle-option.active');
       var stackBB = pfStackEl ? parseInt(pfStackEl.getAttribute('data-value')) : 10;
       var pfPos = pfPosEl ? pfPosEl.getAttribute('data-value') : 'UTG';
 
+      // Check ICM adjustment for push/fold
+      var icmEnabled = GTO.Engine.ICM && GTO.State.get('icmEnabled') !== false;
+      var bf = icmEnabled ? this._getExploreBubbleFactor() : 1.0;
+
       var rangeData = {};
       GTO.Data.ALL_HANDS.forEach(function(h) {
         var lookup = GTO.Data.lookupPushFold(6, pfPos, stackBB, h);
         var inRange = lookup ? lookup.inRange : false;
-        rangeData[h] = { fold: inRange ? 0 : 1, call: 0, raise: inRange ? 1 : 0 };
+        var freqs = { fold: inRange ? 0 : 1, call: 0, raise: inRange ? 1 : 0 };
+        // Under ICM pressure, marginal pushes become folds
+        if (icmEnabled && bf > 1.0) {
+          freqs = GTO.Engine.ICM.adjustFrequencies(freqs, bf, 'pushfold');
+        }
+        rangeData[h] = freqs;
       });
       var activeHand = this._exploreActiveHand || null;
       GTO.UI.HandMatrix.updateMatrix('explore-matrix-table', rangeData, 'raise', activeHand);
 
+      var icmLabel = (icmEnabled && bf > 1.0) ? ' [ICM BF:' + bf.toFixed(1) + 'x]' : '';
       var label = document.getElementById('explore-matrix-label');
-      if (label) label.textContent = 'PUSH/FOLD — ' + pfPos + ' — ' + stackBB + 'BB';
+      if (label) label.textContent = 'PUSH/FOLD — ' + pfPos + ' — ' + stackBB + 'BB' + icmLabel;
 
       this._exploreRangeData = rangeData;
       var combos = 0;
@@ -1661,6 +2222,24 @@ GTO.App = {
       this._showExploreHandDetail(this._exploreActiveHand);
       this._exploreActiveHand = null; // clear so manual filter changes don't re-trigger
     }
+  },
+
+  // Get bubble factor for Explore ICM adjustments
+  // Uses a synthetic table context based on current stack depth setting
+  _getExploreBubbleFactor: function() {
+    var structEl = document.querySelector('#mtt-structure-toggle .toggle-option.active');
+    var structKey = structEl ? structEl.getAttribute('data-value') : '9max_sng';
+    if (!GTO.Data.TournamentStructures || !GTO.Engine.ICM) return 1.0;
+    var structure = GTO.Data.TournamentStructures.get(structKey);
+    var stackEl = document.querySelector('#explore-stack .toggle-option.active');
+    var stackBB = stackEl ? parseInt(stackEl.getAttribute('data-value')) : 25;
+    // Generate a representative table for the explore context
+    var stacks = GTO.Data.TournamentStructures.generateTableStacks({
+      players: structure.players, heroIdx: 0,
+      heroStackBB: stackBB, avgStackBB: stackBB, stage: 'normal'
+    });
+    var prizes = GTO.Data.TournamentStructures.getPrizes(structKey, 100);
+    return GTO.Engine.ICM.bubbleFactor(0, stacks, prizes, stackBB);
   },
 
   _showExploreHandDetail: function(hand) {
@@ -1717,6 +2296,51 @@ GTO.App = {
 
     // Render combo grid
     this._renderComboGrid(hand);
+
+    // Show/hide "View Postflop" button (only in preflop mode)
+    var postflopBtn = document.getElementById('explore-view-postflop');
+    if (postflopBtn) {
+      postflopBtn.style.display = (mode === 'preflop') ? '' : 'none';
+    }
+  },
+
+  _positionToMatchup: function(position) {
+    var map = {
+      'UTG': 'UTG_vs_BB', 'MP': 'UTG_vs_BB', 'CO': 'CO_vs_BB',
+      'BTN': 'BTN_vs_BB', 'SB': 'SB_vs_BB'
+    };
+    return map[position] || 'BTN_vs_BB';
+  },
+
+  _transitionToPostflopExplore: function() {
+    // Read current preflop state
+    var formatEl = document.querySelector('#explore-format .toggle-option.active');
+    var format = formatEl ? formatEl.getAttribute('data-value') : 'cash';
+    var stackEl = document.querySelector('#explore-stack .toggle-option.active');
+    var stack = stackEl ? stackEl.getAttribute('data-value') : '100bb';
+    var posEl = document.querySelector('#explore-position .toggle-option.active');
+    var position = posEl ? posEl.getAttribute('data-value') : 'BTN';
+
+    // Map to matchup
+    var matchupKey = this._positionToMatchup(position);
+
+    // Switch to solver mode
+    var solverOpt = document.querySelector('#explore-mode .toggle-option[data-value="solver"]');
+    if (solverOpt) solverOpt.click();
+
+    // Set solver matchup toggle
+    var matchupOpt = document.querySelector('#solver-matchup .toggle-option[data-value="' + matchupKey + '"]');
+    if (matchupOpt) matchupOpt.click();
+
+    // Set solver depth to match preflop stack
+    var depthOpt = document.querySelector('#solver-depth .toggle-option[data-value="' + stack + '"]');
+    if (depthOpt) depthOpt.click();
+
+    // Set solver format to match preflop format
+    var solverFmtOpt = document.querySelector('#solver-format .toggle-option[data-value="' + format + '"]');
+    if (solverFmtOpt) solverFmtOpt.click();
+
+    // Auto-solve will be triggered by the toggle changes
   },
 
   _renderComboGrid: function(hand) {
@@ -1908,6 +2532,32 @@ GTO.App = {
       }
     }
     return rangeData;
+  },
+
+  // Apply ICM adjustment to postflop rangeData when MTT + ICM enabled
+  _applyICMToRangeData: function(rangeData) {
+    // Read format from the correct toggle depending on explore mode
+    var modeEl = document.querySelector('#explore-mode .toggle-option.active');
+    var mode = modeEl ? modeEl.getAttribute('data-value') : 'preflop';
+    var formatEl;
+    if (mode === 'solver') {
+      formatEl = document.querySelector('#solver-format .toggle-option.active');
+    } else {
+      formatEl = document.querySelector('#explore-format .toggle-option.active');
+    }
+    var format = formatEl ? formatEl.getAttribute('data-value') : 'cash';
+    if (format !== 'mtt') return rangeData;
+    if (!GTO.Engine.ICM || GTO.State.get('icmEnabled') === false) return rangeData;
+
+    var bf = this._getExploreBubbleFactor();
+    if (bf <= 1.0) return rangeData;
+
+    var adjusted = {};
+    var keys = Object.keys(rangeData);
+    for (var i = 0; i < keys.length; i++) {
+      adjusted[keys[i]] = GTO.Engine.ICM.adjustFrequencies(rangeData[keys[i]], bf, 'postflop_bet');
+    }
+    return adjusted;
   },
 
   // Render inline board cards in the matrix header
@@ -2396,11 +3046,57 @@ GTO.App = {
     var matchup = GTO.Data.PostflopMatchups ? GTO.Data.PostflopMatchups[matchupKey] : null;
     if (matchup) {
       var rangeData = this._buildPostflopRangeDataFromCache(cached, matchup);
+      rangeData = this._applyICMToRangeData(rangeData);
       this._postflopRangeData = rangeData;
       this._postflopActions = (cached.actions || '').split('/');
       GTO.UI.HandMatrix.updateMatrix('explore-matrix-table', rangeData, null, null);
       GTO.UI.HandMatrix.updateSummaryBar('explore-summary-bar', rangeData, { raise: 'B', call: 'X', fold: 'F' });
     }
+
+    // ── OOP Range Composition ──
+    this._renderSolverComposition(boardCards, matchupKey);
+  },
+
+  _renderSolverComposition: function(boardCards, matchupKey) {
+    var compEl = document.getElementById('solver-composition');
+    if (!compEl || !GTO.Engine.RangeFilter || !GTO.Engine.RangeFilter.analyzeComposition) return;
+
+    var matchup = GTO.Data.PostflopMatchups ? GTO.Data.PostflopMatchups[matchupKey] : null;
+    if (!matchup || !matchup.oopRange) { compEl.classList.add('hidden'); return; }
+
+    // Build OOP's preflop raising range for composition analysis
+    var preflopCtx = GTO.Engine.RangeFilter.resolveActionContext(matchupKey);
+    var actionRange = null;
+    if (preflopCtx) {
+      actionRange = GTO.Engine.RangeFilter.buildActionRange(
+        'cash', document.querySelector('#solver-depth .toggle-option.active')
+          ? document.querySelector('#solver-depth .toggle-option.active').getAttribute('data-value') : '100bb',
+        preflopCtx.oopContext, preflopCtx.oopPosition, preflopCtx.oopAction
+      );
+    }
+    // Fallback: use full OOP range if no preflop filter
+    if (!actionRange || Object.keys(actionRange).length === 0) {
+      actionRange = {};
+      matchup.oopRange.split(',').forEach(function(h) { h = h.trim(); if (h) actionRange[h] = 1.0; });
+    }
+
+    // Convert board cards to objects
+    var boardObjs = boardCards.map(function(c) {
+      return typeof c === 'string' ? { rank: c[0], suit: c[1] } : c;
+    });
+
+    var comp = GTO.Engine.RangeFilter.analyzeComposition(actionRange, boardObjs);
+    if (comp.total === 0) { compEl.classList.add('hidden'); return; }
+
+    var buckets = ['monsters','strong','medium','draws','weak','air'];
+    for (var i = 0; i < buckets.length; i++) {
+      var pct = Math.round(comp[buckets[i]] * 100);
+      var bar = document.getElementById('solver-comp-' + buckets[i]);
+      var val = document.getElementById('solver-comp-' + buckets[i] + '-val');
+      if (bar) bar.style.width = pct + '%';
+      if (val) val.textContent = pct + '%';
+    }
+    compEl.classList.remove('hidden');
   },
 
   _randomSolverBoard: function() {
@@ -2578,10 +3274,16 @@ GTO.App = {
 
     // ── Update the range matrix with per-hand postflop data ──
     var rangeData = this._buildPostflopRangeDataFromWASM(results);
+    rangeData = this._applyICMToRangeData(rangeData);
     this._postflopRangeData = rangeData;
     this._postflopActions = actions;
     GTO.UI.HandMatrix.updateMatrix('explore-matrix-table', rangeData, null, null);
     GTO.UI.HandMatrix.updateSummaryBar('explore-summary-bar', rangeData, { raise: 'B', call: 'X', fold: 'F' });
+
+    // ── OOP Range Composition ──
+    var matchupEl = document.querySelector('#solver-matchup .toggle-option.active');
+    var matchupKey = matchupEl ? matchupEl.getAttribute('data-value') : 'SB_vs_BB';
+    this._renderSolverComposition(boardCards, matchupKey);
   },
 
   _renderSolverStrategyBars: function(aggStrategy, actions, numCombos) {

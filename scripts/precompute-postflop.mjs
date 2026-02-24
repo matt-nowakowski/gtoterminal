@@ -529,6 +529,82 @@ if (IS_CHILD) {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Extract child game tree nodes (IP cbet, IP facing cbet, OOP facing probe)
+  // The solver has already computed the full tree — we just need to navigate it.
+  // -------------------------------------------------------------------------
+  function extractNodeStrategy(history) {
+    try {
+      manager.apply_history(new Uint32Array(history));
+      const nodeResults = manager.get_results();
+      const nodeActions = manager.actions();
+      const nodePlayer = manager.current_player();
+      const nodeNumActions = manager.num_actions();
+
+      if (nodePlayer === 'terminal' || nodePlayer === 'chance') return null;
+
+      // Parse packed results array (same format as root)
+      let off = 0;
+      off++; // oopPot
+      off++; // ipPot
+      const nodeIsEmpty = nodeResults[off++];
+
+      const nodeOopW = Array.from(nodeResults.slice(off, off + oopLen));
+      off += oopLen;
+      const nodeIpW = Array.from(nodeResults.slice(off, off + ipLen));
+      off += ipLen;
+
+      // Skip normalized weights
+      off += oopLen + ipLen;
+
+      if (nodeIsEmpty === 0) {
+        off += oopLen; // oop equity
+        off += ipLen;  // ip equity
+        off += oopLen; // oop EV
+        off += ipLen;  // ip EV
+        off += oopLen; // oop EQR
+        off += ipLen;  // ip EQR
+      }
+
+      // Extract aggregate strategy
+      const activeLen = nodePlayer === 'oop' ? oopLen : ipLen;
+      const activeW = nodePlayer === 'oop' ? nodeOopW : nodeIpW;
+      const stratLen = nodeNumActions * activeLen;
+      const strat = Array.from(nodeResults.slice(off, off + stratLen));
+
+      const agg = [];
+      let totalW = 0;
+      for (let c = 0; c < activeLen; c++) totalW += activeW[c];
+      for (let a = 0; a < nodeNumActions; a++) {
+        let sum = 0;
+        for (let c = 0; c < activeLen; c++) {
+          sum += strat[a * activeLen + c] * activeW[c];
+        }
+        agg.push(totalW > 0 ? Math.round(sum / totalW * 1000) / 1000 : 0);
+      }
+
+      return { actions: nodeActions, player: nodePlayer, numActions: nodeNumActions, strategy: agg };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  const nodes = {};
+
+  // [0] = after OOP checks → IP decides Check/Bet (IP_cbet_flop)
+  const ipCbet = extractNodeStrategy([0]);
+  if (ipCbet) nodes.ip_cbet = ipCbet;
+
+  // [1] = after OOP bets → IP decides Fold/Call/Raise (IP_facing_cbet)
+  const ipFacing = extractNodeStrategy([1]);
+  if (ipFacing) nodes.ip_facing_cbet = ipFacing;
+
+  // [0,1] = after OOP checks + IP bets → OOP decides Fold/Call/Raise (OOP_facing_cbet)
+  if (ipCbet && ipCbet.numActions > 1) {
+    const oopFacing = extractNodeStrategy([0, 1]);
+    if (oopFacing) nodes.oop_facing_cbet = oopFacing;
+  }
+
   console.log(JSON.stringify({
     iterations: iteration,
     exploitability: Math.round(exploit * 1000) / 1000,
@@ -542,6 +618,7 @@ if (IS_CHILD) {
     ipEV: avgEV[1],
     oopCombos: oopLen,
     ipCombos: ipLen,
+    nodes: nodes,
   }));
 
   process.exit(0);
@@ -576,10 +653,11 @@ function solveInChildProcess(matchupKey, matchup, flopDef) {
     child.stdout.on('data', (data) => { stdout += data.toString(); });
     child.stderr.on('data', (data) => { stderr += data.toString(); });
 
+    const timeoutMs = parseInt(process.env.SOLVE_TIMEOUT) || 600000;
     const timeout = setTimeout(() => {
       child.kill('SIGKILL');
-      resolve({ error: 'timeout (10 min)' });
-    }, 600000);  // 10 min timeout
+      resolve({ error: `timeout (${Math.round(timeoutMs/60000)} min)` });
+    }, timeoutMs);
 
     child.on('exit', (code) => {
       clearTimeout(timeout);
@@ -653,10 +731,11 @@ async function main() {
       spotNum++;
       const key = flopDef.label;
 
-      // Skip if already solved (incremental build)
-      if (solutions[matchupKey][key] && !solutions[matchupKey][key].error && !FILTER_BOARD && !FILTER_MATCHUP) {
+      // Skip if already solved with nodes (incremental build)
+      const existing = solutions[matchupKey][key];
+      if (existing && !existing.error && existing.nodes && !FILTER_BOARD && !FILTER_MATCHUP) {
         skipped++;
-        console.log(`[precompute] [${spotNum}/${totalSpots}] ${matchupKey}/${key} — already solved, skipping`);
+        console.log(`[precompute] [${spotNum}/${totalSpots}] ${matchupKey}/${key} — already solved (${Object.keys(existing.nodes).length + 1} nodes), skipping`);
         continue;
       }
 
@@ -671,8 +750,9 @@ async function main() {
         errors++;
         solutions[matchupKey][key] = { error: result.error };
       } else {
-        console.log(`  OK: ${result.iterations} iter, exploit=${result.exploitability}, actions=${result.actions} (${elapsed}s)`);
-        solutions[matchupKey][key] = {
+        const nodeCount = result.nodes ? Object.keys(result.nodes).length : 0;
+        console.log(`  OK: ${result.iterations} iter, exploit=${result.exploitability}, actions=${result.actions}, nodes=${nodeCount + 1} (${elapsed}s)`);
+        const entry = {
           board: flopDef.board.join(''),
           texture: flopDef.texture,
           actions: result.actions,
@@ -688,6 +768,10 @@ async function main() {
           oopCombos: result.oopCombos,
           ipCombos: result.ipCombos,
         };
+        if (result.nodes && Object.keys(result.nodes).length > 0) {
+          entry.nodes = result.nodes;
+        }
+        solutions[matchupKey][key] = entry;
       }
 
       // Save after each spot (incremental)

@@ -312,6 +312,63 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 
+/* === ICM PRESSURE === */
+.pressure-low { color: var(--green); }
+.pressure-moderate { color: var(--gold, #ffd700); }
+.pressure-high { color: var(--orange, #ff8c00); }
+.pressure-extreme { color: var(--red); font-weight: bold; }
+
+/* === ICM TOGGLE === */
+.icm-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.icm-toggle span {
+  color: var(--orange, #ff8c00);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 18px;
+  cursor: pointer;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--text-dim);
+  border-radius: 9px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  left: 2px;
+  bottom: 2px;
+  background: var(--text-dim);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--orange, #ff8c00);
+  border-color: var(--orange, #ff8c00);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+  background: #fff;
+}
+
 /* === PROGRESS BAR === */
 .progress-bar {
   width: 100%;

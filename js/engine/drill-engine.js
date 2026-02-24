@@ -67,14 +67,80 @@ GTO.Engine.DrillEngine = {
         scenario.actionContext, scenario.positionKey || scenario.position,
         scenario.hand
       );
-      result = GTO.Engine.Scoring.scorePreflop(gtoFreqs, userAction, { potSize: 2.5 });
+
+      // ICM adjustment: score against adjusted frequencies when MTT + ICM enabled
+      var icmEnabled = scenario.format === 'mtt' && scenario.icmContext &&
+        GTO.Engine.ICM && GTO.State.get('icmEnabled') !== false;
+      var scoringFreqs = gtoFreqs;
+      if (icmEnabled && gtoFreqs && scenario.icmContext.bubbleFactor > 1.0) {
+        var spotType = GTO.Engine.ICM.resolveSpotType(scenario);
+        scoringFreqs = GTO.Engine.ICM.adjustFrequencies(gtoFreqs, scenario.icmContext.bubbleFactor, spotType);
+      }
+
+      result = GTO.Engine.Scoring.scorePreflop(scoringFreqs, userAction, { potSize: 2.5 });
+      if (icmEnabled) {
+        result.rawGtoFreqs = gtoFreqs;
+        GTO.Engine.Scoring.scoreWithICM(result, scenario.icmContext, 0.5);
+      }
     } else if (scenario.type === 'postflop') {
       var spr = scenario.effectiveStack && scenario.potSize ? scenario.effectiveStack / scenario.potSize : null;
-      var gtoFreqs = GTO.Data.lookupPostflop(scenario.spotType, scenario.boardTexture, scenario.handStrength, spr);
-      result = GTO.Engine.Scoring.scorePostflop(gtoFreqs, userAction, { potSize: scenario.potSize || 6.5 });
+      var lookupResult = GTO.Engine.PostflopLookup ? GTO.Engine.PostflopLookup.lookup({
+        spotType: scenario.spotType,
+        boardTexture: scenario.boardTexture,
+        handStrength: scenario.handStrength,
+        spr: spr,
+        boardCards: scenario.boardCards,
+        matchup: scenario.matchup || null,
+        depth: scenario.depth || null
+      }) : { freqs: null, source: 'heuristic' };
+      var gtoFreqs = lookupResult.freqs;
+
+      // ICM adjustment for MTT postflop
+      var icmEnabled = scenario.format === 'mtt' && scenario.icmContext &&
+        GTO.Engine.ICM && GTO.State.get('icmEnabled') !== false;
+      var scoringFreqs = gtoFreqs;
+      if (icmEnabled && gtoFreqs && scenario.icmContext.bubbleFactor > 1.0) {
+        var spotType = GTO.Engine.ICM.resolveSpotType(scenario);
+        scoringFreqs = GTO.Engine.ICM.adjustFrequencies(gtoFreqs, scenario.icmContext.bubbleFactor, spotType);
+      }
+
+      // Range composition adjustment — nudge frequencies based on preflop sub-range
+      if (scoringFreqs && scenario.preflopContext && scenario.preflopAction &&
+          GTO.Engine.RangeFilter && GTO.Engine.RangeFilter.adjustForComposition) {
+        var isIP = scenario.heroPosition === 'BTN' || scenario.heroPosition === 'CO';
+        var side = isIP ? 'ip' : 'oop';
+        var heroCtx = scenario.preflopContext[side + 'Context'];
+        var heroPos = scenario.preflopContext[side + 'Position'];
+        var heroRange = GTO.Engine.RangeFilter.buildActionRange(
+          scenario.format || 'cash', scenario.depth || '100bb', heroCtx, heroPos, scenario.preflopAction
+        );
+        var boardObjs = (scenario.boardCards || []).map(function(c) {
+          return typeof c === 'string' ? { rank: c[0], suit: c[1] } : c;
+        });
+        var comp = GTO.Engine.RangeFilter.analyzeComposition(heroRange, boardObjs);
+        if (comp.total > 0) {
+          scoringFreqs = GTO.Engine.RangeFilter.adjustForComposition(scoringFreqs, comp, scenario.spotType);
+        }
+      }
+
+      result = GTO.Engine.Scoring.scorePostflop(scoringFreqs, userAction, { potSize: scenario.potSize || 6.5 });
+      result.dataSource = lookupResult.source;
+      if (icmEnabled) {
+        result.rawGtoFreqs = gtoFreqs;
+        GTO.Engine.Scoring.scoreWithICM(result, scenario.icmContext, 0.5);
+      }
     } else if (scenario.type === 'tournament') {
-      var lookup = GTO.Data.lookupPushFold(6, scenario.position, scenario.stackBB, scenario.hand);
+      var numPlayers = scenario.payoutStructure ? scenario.payoutStructure.players : 6;
+      var lookup = GTO.Data.lookupPushFold(numPlayers, scenario.position, scenario.stackBB, scenario.hand);
       result = GTO.Engine.Scoring.scorePushFold(lookup.inRange, userAction, { stackBB: scenario.stackBB });
+
+      // Overlay ICM metrics if tournament context is available
+      if (GTO.Engine.TournamentDrill && scenario.tableStacks) {
+        var icmCtx = GTO.Engine.TournamentDrill.getICMContext(scenario);
+        if (icmCtx) {
+          GTO.Engine.Scoring.scoreWithICM(result, icmCtx, 0.5);
+        }
+      }
     }
 
     // Record decision

@@ -621,7 +621,9 @@ GTO.Data = GTO.Data || {};
   // Lookup helper with optional SPR
   // -------------------------------------------------------------------------
 
-  GTO.Data.lookupPostflop = function(spotType, boardTexture, handStrength, spr) {
+  // Renamed to _lookupPostflopHeuristic — solver-backed lookup in postflop-lookup.js
+  // is the primary entry point. This is the fallback for turn/river spots.
+  GTO.Data._lookupPostflopHeuristic = function(spotType, boardTexture, handStrength, spr) {
     var spot = this.PostflopStrategy[spotType];
     if (!spot) return null;
     var texture = spot[boardTexture];

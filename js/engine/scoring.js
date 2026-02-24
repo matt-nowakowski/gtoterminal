@@ -151,5 +151,44 @@ GTO.Engine.Scoring = {
   getVerdictLabel: function(verdict) {
     var labels = { optimal: 'OPTIMAL', acceptable: 'ACCEPTABLE', suboptimal: 'SUBOPTIMAL', mistake: 'MISTAKE', unknown: 'UNKNOWN' };
     return labels[verdict] || 'UNKNOWN';
+  },
+
+  // -----------------------------------------------------------------------
+  // Overlay ICM metrics onto an existing scoring result
+  // @param {Object} baseResult - from scorePreflop/scorePostflop/scorePushFold
+  // @param {Object} icmContext - from TournamentDrill.getICMContext()
+  // @param {number} winProb - estimated win probability (0-1, default 0.5)
+  // @returns {Object} baseResult with added ICM fields
+  // -----------------------------------------------------------------------
+  scoreWithICM: function(baseResult, icmContext, winProb) {
+    if (!baseResult || !icmContext || !GTO.Engine.ICM) return baseResult;
+
+    winProb = winProb || 0.5;
+    var stacks = icmContext.stacks;
+    var heroIdx = icmContext.heroIdx;
+    var prizes = icmContext.prizes;
+    var potSize = icmContext.potSize;
+
+    // Build win/lose stack scenarios
+    var winStacks = stacks.slice();
+    winStacks[heroIdx] += potSize;
+    var loseStacks = stacks.slice();
+    loseStacks[heroIdx] = Math.max(0, stacks[heroIdx] - potSize);
+
+    var comparison = GTO.Engine.ICM.compareOutcomes(heroIdx, stacks, winStacks, loseStacks, winProb, prizes);
+
+    // Add ICM fields to result
+    baseResult.chipEV = baseResult.evLoss || 0;
+    baseResult.icmEV = comparison.dollarEV;
+    baseResult.icmTax = comparison.icmTax;
+    baseResult.bubbleFactor = icmContext.bubbleFactor;
+    baseResult.icmPressure = icmContext.icmPressure;
+    baseResult.pressureLabel = icmContext.pressureLabel;
+    baseResult.pressureColor = icmContext.pressureColor;
+    baseResult.heroEquity = icmContext.heroEquity;
+    baseResult.prizePool = icmContext.prizePool;
+    baseResult.hasICM = true;
+
+    return baseResult;
   }
 };
