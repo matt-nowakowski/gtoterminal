@@ -87,6 +87,15 @@ GTO.Streaming.StreamView = {
       pipCloseBtn.addEventListener('click', function() { self._closePiP(); });
     }
 
+    // PiP restore-to-tab button
+    var pipRestoreBtn = document.getElementById('pip-restore-btn');
+    if (pipRestoreBtn) {
+      pipRestoreBtn.addEventListener('click', function() {
+        self._closePiP();
+        GTO.UI.Nav.switchView('stream');
+      });
+    }
+
     // PiP drag support
     var pipHeader = document.querySelector('#pip-overlay .pip-header');
     if (pipHeader) {

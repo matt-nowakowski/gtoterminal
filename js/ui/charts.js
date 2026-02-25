@@ -19,7 +19,7 @@ GTO.UI.Charts = {
 
   drawLine: function(ctx, points, color, width) {
     if (points.length < 2) return;
-    ctx.strokeStyle = color || '#ff8c00';
+    ctx.strokeStyle = color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff8c00';
     ctx.lineWidth = width || 2;
     ctx.beginPath();
     ctx.moveTo(points[0].x, points[0].y);
@@ -30,7 +30,7 @@ GTO.UI.Charts = {
   },
 
   drawDots: function(ctx, points, color, radius) {
-    ctx.fillStyle = color || '#ff8c00';
+    ctx.fillStyle = color || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff8c00';
     points.forEach(function(p) {
       ctx.beginPath();
       ctx.arc(p.x, p.y, radius || 3, 0, Math.PI * 2);

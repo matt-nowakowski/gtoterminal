@@ -76,8 +76,8 @@
 
 /* Mixed: low frequency action (mostly fold with some action) */
 .hand-matrix td.action-mixed-low {
-  background: rgba(255, 140, 0, 0.18);
-  color: var(--orange-dim);
+  background: rgba(var(--accent-rgb), 0.18);
+  color: var(--accent-dim);
 }
 
 /* Initial state — cells start with freq-0 in HTML, overwritten on first matrix update */
@@ -295,9 +295,9 @@
 }
 
 .position-chip.hero {
-  border-color: var(--orange);
-  color: var(--orange);
-  background: rgba(255, 140, 0, 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1);
 }
 
 .position-chip.villain {
@@ -416,7 +416,7 @@
 }
 
 .solver-input:focus {
-  border-color: var(--orange);
+  border-color: var(--accent);
 }
 
 .solver-input::placeholder {
@@ -465,7 +465,7 @@
 .solver-progress-fill {
   height: 100%;
   width: 0%;
-  background: var(--orange);
+  background: var(--accent);
   border-radius: 3px;
   transition: width 0.3s ease;
 }
@@ -507,7 +507,7 @@
 }
 
 .solver-hand-table tr:hover td {
-  background: rgba(255,140,0,0.05);
+  background: rgba(var(--accent-rgb), 0.05);
 }
 
 /* Solver strategy mini-bar in table */
@@ -539,14 +539,14 @@
 }
 
 .solver-action-btn:hover {
-  border-color: var(--orange);
-  color: var(--orange);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .solver-action-btn.active {
-  border-color: var(--orange);
-  background: rgba(255,140,0,0.12);
-  color: var(--orange);
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
 }
 
 /* Solver strategy frequency bars */
@@ -673,14 +673,14 @@
 }
 
 .bp-card-grid .bp-card:hover {
-  border-color: var(--orange);
+  border-color: var(--accent);
   filter: brightness(1.4);
 }
 
 .bp-card-grid .bp-card.bp-selected {
-  border-color: var(--orange);
-  background: rgba(255, 140, 0, 0.2);
-  box-shadow: 0 0 6px rgba(255, 140, 0, 0.3);
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.2);
+  box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.3);
 }
 
 .bp-card-grid .bp-suit-s { color: #e0e0e0; }
@@ -759,8 +759,8 @@
 }
 
 .bp-preset-board:hover {
-  border-color: var(--orange);
-  background: rgba(255, 140, 0, 0.08);
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
 }
 
 .bp-preset-board .playing-card {
@@ -818,7 +818,7 @@
   width: 12px;
   height: 12px;
   border: 2px solid var(--border-dim);
-  border-top-color: var(--orange);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: solver-spin 0.8s linear infinite;
   vertical-align: middle;

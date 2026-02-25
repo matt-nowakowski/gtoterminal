@@ -138,7 +138,7 @@ GTO.Analytics.Dashboard = {
     var plotW = w - padding * 2;
     var plotH = h - padding * 2;
 
-    ctx.strokeStyle = '#ff8c00';
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff8c00';
     ctx.lineWidth = 2;
     ctx.beginPath();
     sessions.forEach(function(s, idx) {
@@ -150,7 +150,7 @@ GTO.Analytics.Dashboard = {
     ctx.stroke();
 
     // Draw dots
-    ctx.fillStyle = '#ff8c00';
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff8c00';
     sessions.forEach(function(s, idx) {
       var x = padding + (plotW * idx) / (sessions.length - 1);
       var y = padding + plotH * (1 - s.accuracy);

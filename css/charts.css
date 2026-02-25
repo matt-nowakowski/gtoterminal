@@ -41,14 +41,14 @@
 
 .bar-fill {
   height: 100%;
-  background: var(--orange);
+  background: var(--accent);
   border-radius: 1px;
   transition: width 0.6s ease;
   position: relative;
 }
 
 .bar-fill.fill-high { background: var(--green); }
-.bar-fill.fill-mid { background: var(--orange); }
+.bar-fill.fill-mid { background: var(--accent); }
 .bar-fill.fill-low { background: var(--red); }
 
 .bar-value {
@@ -66,7 +66,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-wide);
-  color: var(--orange);
+  color: var(--accent);
   margin-bottom: 10px;
   display: flex;
   align-items: center;
@@ -153,7 +153,7 @@
 }
 
 .session-date { color: var(--text-secondary); }
-.session-type { color: var(--orange); font-weight: 600; text-transform: uppercase; }
+.session-type { color: var(--accent); font-weight: 600; text-transform: uppercase; }
 .session-count { color: var(--text-dim); }
 .session-bar {
   height: 8px;
@@ -226,12 +226,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--orange-glow);
-  border: 1px solid var(--orange-dim);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-dim);
   border-radius: 50%;
   font-size: 10px;
   font-weight: 700;
-  color: var(--orange);
+  color: var(--accent);
   flex-shrink: 0;
 }
 

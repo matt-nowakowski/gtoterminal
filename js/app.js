@@ -69,6 +69,7 @@ GTO.App = {
         var group = this.parentElement;
         group.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
         this.classList.add('active');
+        if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick');
         var val = this.getAttribute('data-value');
         if (group.id === 'settings-format') {
           GTO.State.set('settings.format', val);
@@ -81,6 +82,8 @@ GTO.App = {
         } else if (group.id === 'settings-range-scheme') {
           GTO.State.set('settings.rangeScheme', val);
           self._applyTheme();
+        } else if (group.id === 'settings-boot') {
+          localStorage.setItem('gto_settings_showBoot', val === 'on' ? 'true' : 'false');
         }
       });
     });
@@ -89,10 +92,13 @@ GTO.App = {
     var savedAccent = settings.accentColor || 'orange';
     var savedScheme = settings.rangeScheme || 'classic';
     var savedSound = settings.soundEnabled ? 'on' : 'off';
-    ['settings-accent', 'settings-range-scheme', 'settings-sound'].forEach(function(gid) {
+    var savedBoot = localStorage.getItem('gto_settings_showBoot') === 'true' ? 'on' : 'off';
+    ['settings-accent', 'settings-range-scheme', 'settings-sound', 'settings-boot'].forEach(function(gid) {
       var grp = document.getElementById(gid);
       if (!grp) return;
-      var target = gid === 'settings-accent' ? savedAccent : gid === 'settings-range-scheme' ? savedScheme : savedSound;
+      var target = gid === 'settings-accent' ? savedAccent :
+                   gid === 'settings-range-scheme' ? savedScheme :
+                   gid === 'settings-boot' ? savedBoot : savedSound;
       grp.querySelectorAll('.toggle-option').forEach(function(o) {
         o.classList.toggle('active', o.getAttribute('data-value') === target);
       });
@@ -118,13 +124,13 @@ GTO.App = {
   // ── Theme / Personalization ──
 
   _ACCENT_PRESETS: {
-    orange:  { accent: '#ff8c00', dim: '#cc7000', glow: 'rgba(255, 140, 0, 0.15)' },
-    green:   { accent: '#4af6c3', dim: '#2db88e', glow: 'rgba(74, 246, 195, 0.15)' },
-    blue:    { accent: '#4a9eff', dim: '#2b7cd6', glow: 'rgba(74, 158, 255, 0.15)' },
-    cyan:    { accent: '#00e5ff', dim: '#00b0c4', glow: 'rgba(0, 229, 255, 0.15)' },
-    purple:  { accent: '#b388ff', dim: '#8c5dcc', glow: 'rgba(179, 136, 255, 0.15)' },
-    red:     { accent: '#ff5252', dim: '#cc3333', glow: 'rgba(255, 82, 82, 0.15)' },
-    gold:    { accent: '#ffd700', dim: '#b39700', glow: 'rgba(255, 215, 0, 0.15)' }
+    orange:  { accent: '#ff8c00', dim: '#cc7000', glow: 'rgba(255, 140, 0, 0.15)', rgb: '255, 140, 0' },
+    green:   { accent: '#4af6c3', dim: '#2db88e', glow: 'rgba(74, 246, 195, 0.15)', rgb: '74, 246, 195' },
+    blue:    { accent: '#4a9eff', dim: '#2b7cd6', glow: 'rgba(74, 158, 255, 0.15)', rgb: '74, 158, 255' },
+    cyan:    { accent: '#00e5ff', dim: '#00b0c4', glow: 'rgba(0, 229, 255, 0.15)', rgb: '0, 229, 255' },
+    purple:  { accent: '#b388ff', dim: '#8c5dcc', glow: 'rgba(179, 136, 255, 0.15)', rgb: '179, 136, 255' },
+    red:     { accent: '#ff5252', dim: '#cc3333', glow: 'rgba(255, 82, 82, 0.15)', rgb: '255, 82, 82' },
+    gold:    { accent: '#ffd700', dim: '#b39700', glow: 'rgba(255, 215, 0, 0.15)', rgb: '255, 215, 0' }
   },
 
   _RANGE_PRESETS: {
@@ -147,6 +153,7 @@ GTO.App = {
     root.setProperty('--accent', accent.accent);
     root.setProperty('--accent-dim', accent.dim);
     root.setProperty('--accent-glow', accent.glow);
+    root.setProperty('--accent-rgb', accent.rgb);
     root.setProperty('--range-raise', range.raise);
     root.setProperty('--range-call', range.call);
     root.setProperty('--range-raise-color', range.raiseColor);
@@ -161,13 +168,14 @@ GTO.App = {
 
     // Config UI: toggle chips
     document.querySelectorAll('#preflop-config .checkbox-chip').forEach(function(chip) {
-      chip.addEventListener('click', function() { this.classList.toggle('checked'); });
+      chip.addEventListener('click', function() { this.classList.toggle('checked'); if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick'); });
     });
     document.querySelectorAll('#preflop-config .toggle-option').forEach(function(opt) {
       opt.addEventListener('click', function() {
         var group = this.parentElement;
         group.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
         this.classList.add('active');
+        if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick');
       });
     });
 
@@ -205,6 +213,7 @@ GTO.App = {
   },
 
   _startPreflopSession: function() {
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('thock');
     // Read config from UI
     var format = 'cash';
     var formatToggle = document.querySelector('#preflop-format-toggle .toggle-option.active');
@@ -317,6 +326,7 @@ GTO.App = {
   _submitPreflopAction: function(action) {
     if (!GTO.Engine.DrillEngine.isActive()) return;
     if (GTO.Keyboard.getContext() !== 'drill-preflop') return;
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('action');
 
     var result = GTO.Engine.DrillEngine.submitAnswer(action);
     if (!result) return;
@@ -440,6 +450,7 @@ GTO.App = {
 
   _nextDrill: function() {
     if (GTO.Keyboard.getContext() !== 'result') return;
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('thock');
 
     // Hide next bar
     var nextBar = document.getElementById('drill-next-bar');
@@ -499,6 +510,7 @@ GTO.App = {
   },
 
   _navigateToExploreWithScenario: function() {
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('nav');
     var scenario = this._lastScenario;
     if (!scenario) return;
 
@@ -553,12 +565,13 @@ GTO.App = {
 
     // Config toggles
     document.querySelectorAll('#postflop-config .checkbox-chip').forEach(function(c) {
-      c.addEventListener('click', function() { this.classList.toggle('checked'); });
+      c.addEventListener('click', function() { this.classList.toggle('checked'); if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick'); });
     });
     document.querySelectorAll('#postflop-config .toggle-option').forEach(function(opt) {
       opt.addEventListener('click', function() {
         this.parentElement.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
         this.classList.add('active');
+        if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick');
       });
     });
 
@@ -599,6 +612,7 @@ GTO.App = {
   },
 
   _startPostflopSession: function() {
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('thock');
     var spotTypes = [];
     document.querySelectorAll('#postflop-spot-chips .checkbox-chip.checked').forEach(function(c) {
       spotTypes.push(c.getAttribute('data-value'));
@@ -731,6 +745,7 @@ GTO.App = {
   _submitPostflopAction: function(action) {
     if (!GTO.Engine.DrillEngine.isActive()) return;
     if (GTO.Keyboard.getContext() !== 'drill-postflop') return;
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('action');
 
     GTO.Engine.DrillEngine.submitAnswer(action);
     document.querySelectorAll('#postflop-dynamic-actions .action-btn').forEach(function(b) { b.disabled = true; });
@@ -751,7 +766,7 @@ GTO.App = {
       if (result.dataSource) {
         var isSolver = result.dataSource === 'solver';
         dataSourceBadge = '<span style="font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; margin-left:8px; letter-spacing:0.05em; ' +
-          (isSolver ? 'background:rgba(74,246,195,0.15); color:var(--green);' : 'background:rgba(255,215,0,0.15); color:var(--orange);') +
+          (isSolver ? 'background:rgba(74,246,195,0.15); color:var(--green);' : 'background:rgba(255,215,0,0.15); color:var(--accent);') +
           '">' + result.dataSource.toUpperCase() + '</span>';
         if (!isSolver && scenario && scenario.matchup) {
           dataSourceBadge += '<button class="solver-action-btn" id="btn-solve-drill" ' +
@@ -926,12 +941,13 @@ GTO.App = {
     var self = this;
 
     document.querySelectorAll('#mtt-config .checkbox-chip').forEach(function(c) {
-      c.addEventListener('click', function() { this.classList.toggle('checked'); });
+      c.addEventListener('click', function() { this.classList.toggle('checked'); if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick'); });
     });
     document.querySelectorAll('#mtt-config .toggle-option').forEach(function(opt) {
       opt.addEventListener('click', function() {
         this.parentElement.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
         this.classList.add('active');
+        if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick');
       });
     });
 
@@ -958,6 +974,7 @@ GTO.App = {
   },
 
   _startTournamentSession: function() {
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('thock');
     // Read stack range from chips
     var stackVals = [];
     document.querySelectorAll('#mtt-stack-chips .checkbox-chip.checked').forEach(function(c) {
@@ -1067,6 +1084,7 @@ GTO.App = {
   _submitMTTAction: function(action) {
     if (!GTO.Engine.DrillEngine.isActive()) return;
     if (GTO.Keyboard.getContext() !== 'drill-mtt') return;
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('action');
     GTO.Engine.DrillEngine.submitAnswer(action);
     document.querySelectorAll('#mtt-actions-pushfold .action-btn, #mtt-actions-deep .action-btn').forEach(function(b) { b.disabled = true; });
     GTO.Keyboard.setContext('result');
@@ -1132,6 +1150,7 @@ GTO.App = {
       opt.addEventListener('click', function() {
         this.parentElement.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
         this.classList.add('active');
+        if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick');
       });
     });
 
@@ -1200,6 +1219,7 @@ GTO.App = {
   },
 
   _startPlaythrough: function() {
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('thock');
     var formatEl = document.querySelector('#play-format-toggle .toggle-option.active');
     var stackEl = document.querySelector('#play-stack-toggle .toggle-option.active');
     var format = formatEl ? formatEl.getAttribute('data-value') : 'cash';
@@ -1348,6 +1368,7 @@ GTO.App = {
   _submitPlayAction: function(rawAction) {
     var hand = GTO.Engine.HandPlaythrough.getHand();
     if (!hand || hand.isComplete) return;
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('action');
 
     var street = hand.currentStreet;
     var action = rawAction;
@@ -1370,7 +1391,7 @@ GTO.App = {
 
       var line = '<div style="padding:6px 10px; margin-bottom:3px; border:1px solid var(--border-dim); border-radius:var(--radius-sm); background:' + verdictBg + ';">' +
         '<div style="display:flex; align-items:center; gap:8px; font-size:11px;">' +
-          '<span style="color:var(--orange); font-weight:700; font-size:10px; min-width:56px; text-transform:uppercase; letter-spacing:0.08em;">' + street + '</span>' +
+          '<span style="color:var(--accent); font-weight:700; font-size:10px; min-width:56px; text-transform:uppercase; letter-spacing:0.08em;">' + street + '</span>' +
           '<span style="color:var(--text-secondary);">' + (result.userAction || action).toUpperCase() + '</span>' +
           '<span style="margin-left:auto; color:' + verdictColor + '; font-weight:600; font-size:10px;">' + icon + ' ' + GTO.Engine.Scoring.getVerdictLabel(result.verdict) + '</span>' +
           '<span style="color:var(--text-dim); font-size:10px;">' + GTO.Utils.formatEV(result.evLoss) + '</span>' +
@@ -1747,7 +1768,7 @@ GTO.App = {
       if (result.dataSource) {
         var isSolver = result.dataSource === 'solver';
         dataSourceBadge = '<span style="font-size:9px; font-weight:700; padding:1px 5px; border-radius:3px; margin-left:8px; letter-spacing:0.05em; ' +
-          (isSolver ? 'background:rgba(74,246,195,0.15); color:var(--green);' : 'background:rgba(255,215,0,0.15); color:var(--orange);') +
+          (isSolver ? 'background:rgba(74,246,195,0.15); color:var(--green);' : 'background:rgba(255,215,0,0.15); color:var(--accent);') +
           '">' + result.dataSource.toUpperCase() + '</span>';
         if (!isSolver) {
           dataSourceBadge += '<button class="solver-action-btn" id="btn-solve-play" ' +
@@ -1963,7 +1984,7 @@ GTO.App = {
           }).join(', ');
           var dayLabel = 'Day ' + (sess.day || (idx + 1));
           html += '<div style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border-dim); font-size:11px;">' +
-            '<span style="color:var(--orange); font-weight:600; width:48px; flex-shrink:0;">' + dayLabel + '</span>' +
+            '<span style="color:var(--accent); font-weight:600; width:48px; flex-shrink:0;">' + dayLabel + '</span>' +
             '<span style="color:var(--text-primary); flex:1;">' + drillNames + '</span>' +
             '<span style="color:var(--text-dim);">' + (sess.drills || []).reduce(function(sum, d) { return sum + (d.count || 0); }, 0) + ' hands</span>' +
           '</div>';
@@ -2063,6 +2084,7 @@ GTO.App = {
         var group = this.parentElement;
         group.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
         this.classList.add('active');
+        if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick');
 
         // Handle mode switch
         if (group.id === 'explore-mode') {
@@ -2143,7 +2165,10 @@ GTO.App = {
     if (exploreTable) {
       exploreTable.addEventListener('click', function(e) {
         var cell = e.target.closest('td[data-hand]');
-        if (cell) self._showExploreHandDetail(cell.getAttribute('data-hand'));
+        if (cell) {
+          if (GTO.UI.Sounds) GTO.UI.Sounds.play('tick');
+          self._showExploreHandDetail(cell.getAttribute('data-hand'));
+        }
       });
     }
 
@@ -3024,9 +3049,9 @@ GTO.App = {
       var turnLabel = n === 3 ? 'TURN (pick 1)' : 'TURN (+1)';
       var riverLabel = n === 4 ? 'RIVER (pick 1)' : 'RIVER (+1)';
       streetLabels.innerHTML =
-        '<span style="color:' + (n < 3 ? 'var(--orange)' : 'var(--text-dim)') + '">' + flopLabel + '</span>' +
-        '<span style="margin-left:12px;color:' + (n === 3 ? 'var(--orange)' : 'var(--text-dim)') + '">' + turnLabel + '</span>' +
-        '<span style="margin-left:12px;color:' + (n === 4 ? 'var(--orange)' : 'var(--text-dim)') + '">' + riverLabel + '</span>';
+        '<span style="color:' + (n < 3 ? 'var(--accent)' : 'var(--text-dim)') + '">' + flopLabel + '</span>' +
+        '<span style="margin-left:12px;color:' + (n === 3 ? 'var(--accent)' : 'var(--text-dim)') + '">' + turnLabel + '</span>' +
+        '<span style="margin-left:12px;color:' + (n === 4 ? 'var(--accent)' : 'var(--text-dim)') + '">' + riverLabel + '</span>';
     }
   },
 

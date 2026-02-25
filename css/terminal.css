@@ -12,7 +12,7 @@
   
   --border-primary: #333333;
   --border-dim: #1a1a1a;
-  --border-focus: #ff8c00;
+  --border-focus: var(--accent);
   
   --text-primary: #e0e0e0;
   --text-secondary: #888888;
@@ -38,6 +38,7 @@
   --accent: var(--orange);
   --accent-dim: var(--orange-dim);
   --accent-glow: var(--orange-glow);
+  --accent-rgb: 255, 140, 0;
 
   /* Range display colors (defaults to green raise / blue call) */
   --range-raise: 74, 246, 195;
@@ -159,6 +160,7 @@ body::after {
   gap: 0;
   height: 100%;
 }
+
 
 .nav-tab-separator {
   width: 1px;
@@ -283,7 +285,7 @@ body::after {
 
 .status-value.positive { color: var(--green); }
 .status-value.negative { color: var(--red); }
-.status-value.highlight { color: var(--orange); }
+.status-value.highlight { color: var(--accent); }
 
 .status-divider {
   width: 1px;
@@ -321,13 +323,13 @@ body::after {
   font-weight: 600;
   letter-spacing: var(--letter-spacing-wide);
   text-transform: uppercase;
-  color: var(--orange);
+  color: var(--accent);
   gap: 8px;
   user-select: none;
 }
 
 .panel-header .panel-tag {
-  background: var(--orange);
+  background: var(--accent);
   color: var(--bg-primary);
   padding: 1px 5px;
   font-size: 9px;
@@ -368,8 +370,8 @@ body::after {
 
 /* Glow effect for focused panels */
 .panel.focused {
-  border-color: var(--orange);
-  box-shadow: 0 0 12px var(--orange-glow), inset 0 0 12px var(--orange-glow);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow), inset 0 0 12px var(--accent-glow);
 }
 
 /* Utility */
@@ -459,7 +461,7 @@ body::after {
 .pip-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 4px 8px;
   background: var(--bg-panel-header);
   border-bottom: 1px solid var(--border-dim);
@@ -475,6 +477,26 @@ body::after {
   letter-spacing: 0.1em;
   color: var(--accent);
   text-transform: uppercase;
+}
+
+.pip-restore {
+  background: none;
+  border: 1px solid var(--border-dim);
+  border-radius: 2px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  padding: 2px 8px;
+  margin-left: auto;
+  transition: all var(--transition-fast);
+}
+
+.pip-restore:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
 }
 
 .pip-close {

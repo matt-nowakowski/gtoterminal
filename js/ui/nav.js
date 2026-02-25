@@ -20,6 +20,9 @@ GTO.UI.Nav = {
   },
 
   switchView: function(viewName) {
+    // Tab switch sound
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('tab');
+
     // Update tabs
     document.querySelectorAll('.nav-tab').forEach(function(tab) {
       tab.classList.toggle('active', tab.getAttribute('data-view') === viewName);

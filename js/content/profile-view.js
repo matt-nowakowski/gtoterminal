@@ -33,7 +33,7 @@ GTO.Content.ProfileView = {
     html += '<div class="profile-metric-divider"></div>';
     html += this._metric(profile.sessionsCompleted.toString(), 'SESSIONS', 'var(--text-primary)');
     html += '<div class="profile-metric-divider"></div>';
-    html += this._metric(profile.favoritePosition, 'FAV POS', 'var(--orange)');
+    html += this._metric(profile.favoritePosition, 'FAV POS', 'var(--accent)');
     html += '</div>';
 
     html += '</div>'; // profile-top

@@ -11,8 +11,40 @@
   <link rel="stylesheet" href="css/learn.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="stylesheet" href="css/stream.css">
+  <link rel="stylesheet" href="css/boot.css">
 </head>
 <body>
+
+<!-- ═══════════════════ BOOT SCREEN ═══════════════════ -->
+<div id="boot-screen">
+  <div class="boot-content">
+    <div class="boot-main">
+      <div class="boot-main-left">
+        <div id="boot-lines"></div>
+      </div>
+      <div class="boot-main-right">
+        <div class="boot-logo-text">GTO</div>
+        <div class="boot-logo-subtitle">T E R M I N A L</div>
+        <div class="boot-logo-version">Poker Training Suite v2.0</div>
+      </div>
+    </div>
+
+    <div class="boot-status-section" style="opacity:0;">
+      <div class="boot-sep"></div>
+      <div class="boot-status-inner">
+        <div class="boot-sys-label">SYSTEM STATUS</div>
+        <div class="boot-sys-table" id="boot-stats"></div>
+        <div class="boot-sys-ready">Ready.</div>
+      </div>
+      <div class="boot-sep"></div>
+    </div>
+
+    <div class="boot-prompt">
+      <span class="boot-prompt-text">PRESS ENTER TO CONTINUE <span class="boot-cursor"></span></span>
+    </div>
+  </div>
+  <div class="boot-skip">PRESS ANY KEY TO SKIP</div>
+</div>
 
 <div id="app">
 
@@ -517,7 +549,7 @@
             <!-- Hand detail (hidden until a hand is clicked) -->
             <div id="explore-hand-info" class="hidden">
               <div style="display:flex; align-items:center; gap:16px; margin-bottom: 12px;">
-                <span id="explore-selected-hand" style="font-size: 22px; font-weight: 700; color: var(--orange); letter-spacing: 0.05em;">&mdash;</span>
+                <span id="explore-selected-hand" style="font-size: 22px; font-weight: 700; color: var(--accent); letter-spacing: 0.05em;">&mdash;</span>
                 <div style="font-size: 10px; color: var(--text-dim);">
                   <span id="explore-hand-type">--</span> &middot; <span id="explore-hand-combos">--</span> combos
                 </div>
@@ -1115,7 +1147,7 @@
             <div class="matrix-legend">
               <div class="legend-item"><div class="legend-swatch" style="background: var(--bg-secondary);"></div> Fold</div>
               <div class="legend-item"><div class="legend-swatch" style="background: rgba(74,246,195,0.5);"></div> Push</div>
-              <div class="legend-item"><div class="legend-swatch" style="background: rgba(255,140,0,0.3);"></div> Mixed</div>
+              <div class="legend-item"><div class="legend-swatch" style="background: rgba(var(--accent-rgb),0.3);"></div> Mixed</div>
             </div>
           </div>
         </div>
@@ -1204,7 +1236,7 @@
                 <div class="stat-row"><span class="stat-label">EV Loss</span><span class="stat-value negative" id="post-ev-loss">--</span></div>
               </div>
               <div id="drill-composition-line" style="display:none; font-size: 10px; color: var(--text-secondary); margin-top: 8px; padding: 6px 8px; background: var(--bg-secondary); border-radius: 4px;">
-                <span style="color: var(--orange); font-weight: 600;">RANGE:</span> <span id="drill-composition-text">--</span>
+                <span style="color: var(--accent); font-weight: 600;">RANGE:</span> <span id="drill-composition-text">--</span>
               </div>
               <div class="section-header mt-3">AI Insight</div>
               <div class="ai-insight" id="ai-insight-postflop">
@@ -1314,7 +1346,7 @@
               </div>
               <div style="text-align:right;">
                 <div style="font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">Pot</div>
-                <div id="play-pot" style="font-size:18px; font-weight:700; color:var(--orange);">--</div>
+                <div id="play-pot" style="font-size:18px; font-weight:700; color:var(--accent);">--</div>
               </div>
             </div>
 
@@ -1338,7 +1370,7 @@
             <!-- Current street action area (dynamically rendered) -->
             <div id="play-street-area">
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
-                <span style="font-size:10px; font-weight:700; color:var(--orange); text-transform:uppercase; letter-spacing:0.1em;" id="play-street-label">PREFLOP</span>
+                <span style="font-size:10px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em;" id="play-street-label">PREFLOP</span>
               </div>
               <div class="action-buttons" id="play-current-actions">
                 <!-- Rendered dynamically per street -->
@@ -1533,7 +1565,7 @@
             </div>
           </div>
           <div style="border-top:1px solid var(--border-dim); padding-top:14px; margin-bottom:8px;">
-            <div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:var(--orange); margin-bottom:10px;">Upcoming Sessions</div>
+            <div style="font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:var(--accent); margin-bottom:10px;">Upcoming Sessions</div>
             <div id="plan-upcoming-sessions">
               <div style="padding:16px 0; text-align:center;">
                 <div style="font-size:20px; color:var(--text-dim); margin-bottom:8px;">&#9776;</div>
@@ -1969,6 +2001,14 @@
         </div>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Boot Screen</label>
+        <div class="toggle-group" id="settings-boot">
+          <div class="toggle-option" data-value="on">EVERY LOAD</div>
+          <div class="toggle-option active" data-value="off">FIRST TIME ONLY</div>
+        </div>
+      </div>
+
       <div class="form-group mt-4">
         <button class="btn btn-danger w-full" id="btn-reset-data">Reset All Data</button>
       </div>
@@ -2033,7 +2073,7 @@
       </div>
       <!-- Street labels -->
       <div class="bp-street-labels" id="bp-street-labels">
-        <span style="color:var(--orange)">FLOP (pick 3)</span>
+        <span style="color:var(--accent)">FLOP (pick 3)</span>
         <span style="margin-left:12px;color:var(--text-dim)">TURN (+1)</span>
         <span style="margin-left:12px;color:var(--text-dim)">RIVER (+1)</span>
       </div>
@@ -2056,7 +2096,7 @@
       <!-- Confirm button -->
       <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border-dim); display:flex; justify-content:flex-end; gap:8px;">
         <button class="btn btn-xs btn-dim" id="bp-cancel" style="font-size:10px; padding:6px 16px;">CANCEL</button>
-        <button class="btn btn-xs" id="bp-confirm" style="font-size:10px; padding:6px 16px; background:var(--orange); color:#000; font-weight:700;">CONFIRM</button>
+        <button class="btn btn-xs" id="bp-confirm" style="font-size:10px; padding:6px 16px; background:var(--accent); color:#000; font-weight:700;">CONFIRM</button>
       </div>
     </div>
   </div>
@@ -2118,6 +2158,7 @@
 <script src="js/ui/modal.js"></script>
 <script src="js/ui/charts.js"></script>
 <script src="js/ui/sounds.js"></script>
+<script src="js/ui/boot.js"></script>
 <script src="js/solver/solver-cache.js"></script>
 <script src="js/solver/solver-api.js"></script>
 <script src="js/solver/preflop-solver-cache.js"></script>
@@ -2128,6 +2169,7 @@
 <div id="pip-overlay" class="hidden">
   <div class="pip-header">
     <span class="pip-title">STREAM</span>
+    <button class="pip-restore" id="pip-restore-btn" title="Back to Stream tab">&#8599; TAB</button>
     <button class="pip-close" id="pip-close-btn">&times;</button>
   </div>
   <div class="pip-content" id="pip-content"></div>
