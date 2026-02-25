@@ -8788,7 +8788,32 @@ SB_BB: {
 };
 
 // Helper to lookup a hand's GTO action for a scenario
+// Checks PreflopSolutions (solver data) first, then falls back to PreflopRanges (curated)
 GTO.Data.lookupPreflop = function(format, stackDepth, actionContext, positionKey, hand) {
+  // Try solver cache first (pre-computed solver solutions)
+  if (GTO.PreflopSolverCache && GTO.PreflopSolverCache.isAvailable()) {
+    var cached = GTO.PreflopSolverCache.lookup(format, stackDepth, actionContext, positionKey);
+    if (cached) {
+      // Check pure raise
+      if (cached.pure_raise && cached.pure_raise.indexOf(hand) !== -1) {
+        if (actionContext === 'rfi') return { fold: 0, call: 0, raise: 1, _source: 'solver' };
+        return { fold: 0, call: 0, raise: 1, _source: 'solver' };
+      }
+      // Check pure call
+      if (cached.pure_call && cached.pure_call.indexOf(hand) !== -1) {
+        return { fold: 0, call: 1, raise: 0, _source: 'solver' };
+      }
+      // Check mixed
+      if (cached.mixed && cached.mixed[hand]) {
+        var m = cached.mixed[hand];
+        return { fold: m[0], call: m[1], raise: m[2], _source: 'solver' };
+      }
+      // Unlisted = fold
+      return { fold: 1, call: 0, raise: 0, _source: 'solver' };
+    }
+  }
+
+  // Fall back to curated ranges
   var fmt = this.PreflopRanges[format];
   if (!fmt) return null;
 

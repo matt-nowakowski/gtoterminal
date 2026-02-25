@@ -22,3 +22,11 @@ node_modules/
 # Rust/WASM solver build artifacts
 solver/target/
 solver/Cargo.lock
+solver-preflop/target/
+solver-preflop/Cargo.lock
+
+# Playwright MCP
+.playwright-mcp/
+
+# Screenshots (testing artifacts)
+*.png

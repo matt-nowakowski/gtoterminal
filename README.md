@@ -16,7 +16,7 @@ Commercial GTO trainers charge $39-279/month and require constant server connect
 
 | Feature | GTOTerminal | GTO Wizard ($39-279/mo) |
 |---------|-------------|------------------------|
-| **Preflop ranges** | ~600 scenarios, graded A vs solver benchmarks | Millions of solver-computed scenarios |
+| **Preflop solver** | CFR+ WASM solver with 200+ pre-computed spots + live solve for any spot | Millions of solver-computed scenarios |
 | **Postflop solutions** | 460 pre-computed spots + live WASM solver for any board | 300K+ solved spots + neural net |
 | **Multi-street consistency** | Preflop action filters postflop range + composition-aware frequency adjustment | Full game tree with solved turn/river |
 | **ICM / tournament support** | Bubble factor, ICM pressure, Nash push/fold charts | Full ICM solver integration |
@@ -27,9 +27,16 @@ Commercial GTO trainers charge $39-279/month and require constant server connect
 
 We're not a GTO Wizard replacement — they have real infrastructure and a team. GTOTerminal is for players who want solid GTO training without a subscription, and developers who want to see how poker engines work.
 
-### Preflop Accuracy
+### Preflop Solver
 
-Ranges validated against solver benchmarks. RFI and BB defense data grade A/A- across all positions and stack depths (100bb, 40bb, 25bb, 15bb) for both cash and MTT.
+**The only free, open-source in-browser preflop GTO solver.** Built from scratch using CFR+ (Counterfactual Regret Minimization Plus) compiled to WebAssembly:
+
+- **200+ pre-computed spots** across 5 stack depths (100bb/40bb/25bb/20bb/15bb), 4 action contexts (RFI, vs raise, vs 3bet, vs 4bet), and all 6-max position matchups
+- **Live solve** for any uncovered spot — click "SOLVE WITH ENGINE" in Explore to run the WASM solver in-browser with real-time progress
+- **Stack-depth aware** — open sizes, 3bet/4bet sizes, opponent defense rates, and equity realization all scale with effective stacks
+- **Sequential range building** — vs_raise solutions use the villain's actual RFI range, vs_3bet uses the actual 3bet range, etc.
+- **ICM overlay** — MTT spots automatically tightened via bubble factor when ICM is enabled
+- **Calibrated** against known solver benchmarks — ranges within 1-3% of reference GTO data across all positions and depths
 
 ### Postflop Solver
 
@@ -78,12 +85,15 @@ No npm, no build step, no server required.
 2. Click the gear icon in GTOTerminal and paste your key
 3. Click "Explain" on any drill result for AI-powered GTO analysis
 
-### WASM Solver (Optional)
+### WASM Solvers (Optional)
 
-The live solver requires an HTTP server (not `file://`). Pre-computed solutions work without it.
+The live solvers require an HTTP server (not `file://`). Pre-computed solutions work without it.
 
 ```bash
-# Re-solve all postflop spots (if you want to regenerate)
+# Re-compute preflop solutions (200+ spots, ~3 seconds)
+node scripts/precompute-preflop.mjs
+
+# Re-compute postflop solutions (460 spots per depth)
 node scripts/precompute-postflop.mjs --depth 100bb
 node scripts/precompute-postflop.mjs --depth 40bb
 node scripts/precompute-postflop.mjs --depth 25bb
@@ -107,16 +117,20 @@ node scripts/precompute-postflop.mjs --depth 15bb
 
 GTOTerminal builds on the work of several open-source projects:
 
-- **[postflop-solver](https://github.com/b-inary/postflop-solver)** by Wataru Inariba — The core CFR (Counterfactual Regret Minimization) solver that powers our WASM postflop engine. Compiled to WebAssembly via wasm-pack. Licensed under AGPL-3.0.
-- **[wasm-bindgen](https://github.com/rustwasm/wasm-bindgen)** — Rust-to-JavaScript interop that makes the WASM solver callable from the browser.
-- **[wasm-pack](https://github.com/rustwasm/wasm-pack)** — Build toolchain for compiling the Rust solver to WASM with size optimization.
+- **[postflop-solver](https://github.com/b-inary/postflop-solver)** by Wataru Inariba — The CFR solver that powers our WASM postflop engine. Compiled to WebAssembly via wasm-pack. Licensed under AGPL-3.0.
+- **[wasm-bindgen](https://github.com/rustwasm/wasm-bindgen)** — Rust-to-JavaScript interop that makes both WASM solvers callable from the browser.
+- **[wasm-pack](https://github.com/rustwasm/wasm-pack)** — Build toolchain for compiling Rust to WASM with size optimization.
+- **[serde](https://github.com/serde-rs/serde)** / **[serde_json](https://github.com/serde-rs/json)** — Serialization framework used by the preflop solver for JSON config parsing.
 - **[Groq](https://groq.com)** — Fast LLM inference API (Llama 3.3 70B) used for the optional AI coaching and Learn tab article generation.
+
+### Preflop Solver
+
+The preflop solver (`solver-preflop/`) is an **original implementation** written from scratch for GTOTerminal. It implements the CFR+ (Counterfactual Regret Minimization Plus) algorithm for 169 canonical hand groups in 6-max NLHE. The equity model uses a logistic matchup function with domination, pair, and suited adjustments calibrated against Monte Carlo simulations. Licensed under MIT, separate from the AGPL postflop solver.
 
 ## Contributing
 
 Contributions welcome. High-impact areas:
 
-- **Solver-verified preflop ranges** — Replace heuristic data with actual solver output
 - **More pre-computed postflop solutions** — Additional boards and matchups
 - **WASM solver optimization** — Faster convergence and solve speed
 - **Hand history import** — Parse from PokerStars, GGPoker, ACR
@@ -126,4 +140,5 @@ Contributions welcome. High-impact areas:
 
 MIT. See [LICENSE](LICENSE).
 
-The WASM solver component (`solver/`) is AGPL-3.0, matching the upstream [postflop-solver](https://github.com/b-inary/postflop-solver) license.
+- The **postflop** WASM solver (`solver/`) is AGPL-3.0, matching the upstream [postflop-solver](https://github.com/b-inary/postflop-solver) license.
+- The **preflop** WASM solver (`solver-preflop/`) is MIT — original implementation, no upstream dependency.

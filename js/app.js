@@ -2088,6 +2088,14 @@ GTO.App = {
       });
     }
 
+    // Wire preflop SOLVE button
+    var preflopSolveBtn = document.getElementById('btn-explore-preflop-solve');
+    if (preflopSolveBtn) {
+      preflopSolveBtn.addEventListener('click', function() {
+        self._solvePreflopExplore();
+      });
+    }
+
     // Initial render
     this._updateExploreMatrix();
 
@@ -2180,6 +2188,21 @@ GTO.App = {
       var label = document.getElementById('explore-matrix-label');
       if (label) label.textContent = actionCtx.toUpperCase().replace('_', ' ') + ' — ' + position + ' — ' + stack + icmLabel;
 
+      // Update source indicator — detect whether data came from solver cache or curated
+      var sourceEl = document.getElementById('explore-preflop-source');
+      if (sourceEl) {
+        var sampleLookup = GTO.Data.lookupPreflop(format, stack, actionCtx, positionKey, 'AA');
+        if (sampleLookup && sampleLookup._source === 'solver') {
+          var cachedMeta = GTO.PreflopSolverCache && GTO.PreflopSolverCache.lookup(format, stack, actionCtx, positionKey);
+          var metaStr = cachedMeta && cachedMeta.meta ? ' (' + cachedMeta.meta.iterations + ' iter)' : '';
+          sourceEl.textContent = 'Solver' + metaStr;
+          sourceEl.style.color = 'var(--green)';
+        } else {
+          sourceEl.textContent = 'Curated';
+          sourceEl.style.color = 'var(--text-dim)';
+        }
+      }
+
       // Update combo count — count all non-fold combos (raise + call)
       this._exploreRangeData = rangeData;
       var combos = 0;
@@ -2247,6 +2270,135 @@ GTO.App = {
       this._showExploreHandDetail(this._exploreActiveHand);
       this._exploreActiveHand = null; // clear so manual filter changes don't re-trigger
     }
+  },
+
+  // Run the preflop WASM solver for the current Explore preflop filters
+  _solvePreflopExplore: function() {
+    var self = this;
+
+    // Read current filter values
+    var formatEl = document.querySelector('#explore-format .toggle-option.active');
+    var stackEl = document.querySelector('#explore-stack .toggle-option.active');
+    var posEl = document.querySelector('#explore-position .toggle-option.active');
+    var actionEl = document.querySelector('#explore-action .toggle-option.active');
+
+    var format = formatEl ? formatEl.getAttribute('data-value') : 'cash';
+    var stack = stackEl ? stackEl.getAttribute('data-value') : '100bb';
+    var position = posEl ? posEl.getAttribute('data-value') : 'UTG';
+    var actionCtx = actionEl ? actionEl.getAttribute('data-value') : 'rfi';
+
+    var positionKey = position;
+    if (actionCtx !== 'rfi') {
+      var villainEl = document.querySelector('#explore-villain .toggle-option.active');
+      var villain = villainEl ? villainEl.getAttribute('data-value') : 'UTG';
+      positionKey = actionCtx === 'vs_3bet' ? position + '_' + villain : villain + '_' + position;
+    }
+
+    // Show progress
+    var progressEl = document.getElementById('explore-preflop-solve-progress');
+    var statusEl = document.getElementById('explore-preflop-solve-status');
+    var solveBtn = document.getElementById('btn-explore-preflop-solve');
+    if (progressEl) progressEl.classList.remove('hidden');
+    if (solveBtn) solveBtn.disabled = true;
+
+    var stackBB = parseInt(stack);
+
+    // Build ICM bubble factor if applicable
+    var icmBubbleFactor = 1.0;
+    if (format === 'mtt' && GTO.Engine.ICM && GTO.State.get('icmEnabled') !== false) {
+      icmBubbleFactor = this._getExploreBubbleFactor();
+    }
+
+    // Use the preflop solver API
+    if (!GTO.PreflopSolver) {
+      if (statusEl) statusEl.textContent = 'Solver not available';
+      if (solveBtn) solveBtn.disabled = false;
+      return;
+    }
+
+    GTO.PreflopSolver.solve({
+      stackDepth: stackBB,
+      actionContext: actionCtx,
+      position: position,
+      icmBubbleFactor: icmBubbleFactor > 1.0 ? icmBubbleFactor : undefined,
+      onProgress: function(msg) {
+        if (statusEl) {
+          statusEl.textContent = 'Iter ' + msg.iterations + ' | Exploit: ' + msg.exploitability.toFixed(4);
+        }
+      }
+    }).then(function(result) {
+      // Cache the result for future lookups
+      if (GTO.PreflopSolverCache) {
+        var compactResult = result.compact || {};
+        compactResult.meta = {
+          iterations: result.iterations,
+          exploitability: result.exploitability
+        };
+        GTO.PreflopSolverCache.store(format, stack, actionCtx, positionKey, compactResult);
+      }
+
+      // Build range data from solver results
+      var rangeData = {};
+      if (result.results) {
+        var hands = Object.keys(result.results);
+        for (var i = 0; i < hands.length; i++) {
+          var h = hands[i];
+          var r = result.results[h];
+          rangeData[h] = { fold: r.fold || 0, call: r.call || 0, raise: r.raise || 0 };
+        }
+      }
+
+      // Fill in any missing hands as fold
+      if (GTO.Data.ALL_HANDS) {
+        GTO.Data.ALL_HANDS.forEach(function(h) {
+          if (!rangeData[h]) rangeData[h] = { fold: 1, call: 0, raise: 0 };
+        });
+      }
+
+      // Update the matrix with solver results
+      self._exploreRangeData = rangeData;
+      GTO.UI.HandMatrix.updateMatrix('explore-matrix-table', rangeData, null, null);
+      GTO.UI.HandMatrix.updateSummaryBar('explore-summary-bar', rangeData);
+
+      // Update combo count
+      var combos = 0;
+      var totalCombos = 0;
+      if (GTO.Data.ALL_HANDS) {
+        GTO.Data.ALL_HANDS.forEach(function(h) {
+          var c = GTO.Data.COMBOS[h] || 0;
+          totalCombos += c;
+          if (rangeData[h]) {
+            combos += c * ((rangeData[h].raise || 0) + (rangeData[h].call || 0));
+          }
+        });
+      }
+      var comboEl = document.getElementById('explore-combo-count');
+      var pctEl = document.getElementById('explore-hand-pct');
+      if (comboEl) comboEl.textContent = Math.round(combos);
+      if (pctEl) pctEl.textContent = (totalCombos > 0 ? (combos / totalCombos * 100).toFixed(1) : '0') + '%';
+
+      // Update label with SOLVER badge
+      var label = document.getElementById('explore-matrix-label');
+      if (label) label.textContent = actionCtx.toUpperCase().replace('_', ' ') + ' — ' + position + ' — ' + stack + ' [SOLVER]';
+
+      // Update source indicator
+      var sourceEl = document.getElementById('explore-preflop-source');
+      if (sourceEl) {
+        sourceEl.textContent = 'WASM Solver (' + result.iterations + ' iter, ' + result.exploitability.toFixed(4) + ' exploit)';
+        sourceEl.style.color = 'var(--green)';
+      }
+
+      // Hide progress
+      if (progressEl) progressEl.classList.add('hidden');
+      if (solveBtn) solveBtn.disabled = false;
+
+      if (GTO.UI.Toast) GTO.UI.Toast.show('Preflop solver complete — ' + Math.round(combos) + ' combos');
+    }).catch(function(err) {
+      console.error('[PreflopSolver] Error:', err);
+      if (statusEl) statusEl.textContent = 'Error: ' + (err.message || err);
+      if (solveBtn) solveBtn.disabled = false;
+      if (GTO.UI.Toast) GTO.UI.Toast.show('Solver error: ' + (err.message || err), 'error');
+    });
   },
 
   // Get bubble factor for Explore ICM adjustments
