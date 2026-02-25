@@ -13,7 +13,7 @@ GTO.UI.Nav = {
     });
 
     // Keyboard shortcuts for view switching (1-5)
-    var views = ['explore','drill','playthrough','plans','learn','stats','stream'];
+    var views = ['explore','drill','playthrough','plans','stats','learn','stream'];
     views.forEach(function(v, i) {
       GTO.Keyboard.register('navigation', String(i + 1), function() { self.switchView(v); });
     });

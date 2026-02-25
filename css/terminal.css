@@ -33,6 +33,17 @@
   --red-glow: rgba(255, 67, 61, 0.15);
   --yellow: #ffd700;
   --yellow-dim: #b39700;
+
+  /* Accent color — primary UI highlight (defaults to orange) */
+  --accent: var(--orange);
+  --accent-dim: var(--orange-dim);
+  --accent-glow: var(--orange-glow);
+
+  /* Range display colors (defaults to green raise / blue call) */
+  --range-raise: 74, 246, 195;
+  --range-call: 0, 104, 255;
+  --range-raise-color: #4af6c3;
+  --range-call-color: #0068ff;
   
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
   --font-size-xs: 10px;
@@ -121,11 +132,11 @@ body::after {
 #nav-bar .logo {
   font-size: var(--font-size-lg);
   font-weight: 700;
-  color: var(--orange);
+  color: var(--accent);
   letter-spacing: var(--letter-spacing-wide);
   text-transform: uppercase;
   margin-right: 24px;
-  text-shadow: 0 0 20px var(--orange-glow);
+  text-shadow: 0 0 20px var(--accent-glow);
   cursor: default;
 }
 
@@ -138,6 +149,24 @@ body::after {
   display: flex;
   gap: 0;
   height: 100%;
+  flex-grow: 1;
+  flex-shrink: 0;
+}
+
+.nav-tabs-main,
+.nav-tabs-secondary {
+  display: flex;
+  gap: 0;
+  height: 100%;
+}
+
+.nav-tab-separator {
+  width: 1px;
+  height: 50%;
+  align-self: center;
+  background: var(--border-primary);
+  margin: 0 8px;
+  flex-shrink: 0;
 }
 
 .nav-tab {
@@ -162,9 +191,9 @@ body::after {
 }
 
 .nav-tab.active {
-  color: var(--orange);
-  border-bottom-color: var(--orange);
-  background: var(--orange-glow);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--accent-glow);
 }
 
 .nav-tab .tab-key {
@@ -198,7 +227,7 @@ body::after {
 }
 
 .nav-btn:hover {
-  color: var(--orange);
+  color: var(--accent);
   background: var(--bg-hover);
 }
 
@@ -412,3 +441,66 @@ body::after {
 .animate-slide-up { animation: slideInUp 0.3s ease; }
 .animate-pulse { animation: pulse 2s infinite; }
 .cursor-blink { animation: blink 1s step-end infinite; }
+
+/* ── PiP Floating Mini-Player ── */
+#pip-overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 360px;
+  z-index: 999;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+.pip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: var(--bg-panel-header);
+  border-bottom: 1px solid var(--border-dim);
+  cursor: grab;
+  user-select: none;
+}
+
+.pip-header:active { cursor: grabbing; }
+
+.pip-title {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.pip-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  font-family: var(--font-mono);
+}
+
+.pip-close:hover { color: var(--red); }
+
+.pip-content {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 */
+}
+
+.pip-content iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}

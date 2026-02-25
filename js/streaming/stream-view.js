@@ -8,6 +8,9 @@ GTO.Streaming.StreamView = {
   _activeStreamId: null,
   _screenshotData: null,
   _captureStream: null, // MediaStream from getDisplayMedia
+  _pipActive: false,
+  _pipDragging: false,
+  _pipDragOffset: null,
 
   VISION_MODEL: 'meta-llama/llama-4-scout-17b-16e-instruct',
 
@@ -56,6 +59,11 @@ GTO.Streaming.StreamView = {
         return;
       }
 
+      if (e.target.closest('#stream-pip-btn')) {
+        self._togglePiP();
+        return;
+      }
+
       if (e.target.closest('#spot-clear-btn')) {
         self._clearScreenshot();
         return;
@@ -70,6 +78,36 @@ GTO.Streaming.StreamView = {
           e.preventDefault();
           self._loadCustomChannel();
         }
+      });
+    }
+
+    // PiP close button
+    var pipCloseBtn = document.getElementById('pip-close-btn');
+    if (pipCloseBtn) {
+      pipCloseBtn.addEventListener('click', function() { self._closePiP(); });
+    }
+
+    // PiP drag support
+    var pipHeader = document.querySelector('#pip-overlay .pip-header');
+    if (pipHeader) {
+      pipHeader.addEventListener('mousedown', function(e) {
+        if (e.target.closest('.pip-close')) return;
+        self._pipDragging = true;
+        var overlay = document.getElementById('pip-overlay');
+        var rect = overlay.getBoundingClientRect();
+        self._pipDragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', function(e) {
+        if (!self._pipDragging) return;
+        var overlay = document.getElementById('pip-overlay');
+        overlay.style.left = (e.clientX - self._pipDragOffset.x) + 'px';
+        overlay.style.top = (e.clientY - self._pipDragOffset.y) + 'px';
+        overlay.style.right = 'auto';
+        overlay.style.bottom = 'auto';
+      });
+      document.addEventListener('mouseup', function() {
+        self._pipDragging = false;
       });
     }
 
@@ -519,6 +557,66 @@ GTO.Streaming.StreamView = {
     var m = parseInt(parts[1], 10) - 1;
     var d = parseInt(parts[2], 10);
     return months[m] + ' ' + d;
+  },
+
+  // ── Picture-in-Picture Mini-Player ──
+
+  _togglePiP: function() {
+    if (this._pipActive) {
+      this._closePiP();
+      return;
+    }
+
+    var container = document.getElementById('stream-player-container');
+    var pipContent = document.getElementById('pip-content');
+    var overlay = document.getElementById('pip-overlay');
+    if (!container || !pipContent || !overlay) return;
+
+    // Find the iframe in the stream player
+    var iframe = container.querySelector('iframe');
+    if (!iframe) {
+      if (GTO.UI.Toast) GTO.UI.Toast.info('Load a stream first');
+      return;
+    }
+
+    // Move iframe to PiP overlay
+    pipContent.appendChild(iframe);
+    overlay.classList.remove('hidden');
+    // Reset position to bottom-right
+    overlay.style.right = '20px';
+    overlay.style.bottom = '20px';
+    overlay.style.left = 'auto';
+    overlay.style.top = 'auto';
+
+    // Show placeholder in main player
+    container.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
+      'background:#0a0a0a;color:var(--text-dim);font-size:11px;letter-spacing:0.05em;">STREAM IN MINI-PLAYER</div>';
+
+    this._pipActive = true;
+    var pipBtn = document.getElementById('stream-pip-btn');
+    if (pipBtn) pipBtn.textContent = 'RESTORE';
+  },
+
+  _closePiP: function() {
+    if (!this._pipActive) return;
+
+    var container = document.getElementById('stream-player-container');
+    var pipContent = document.getElementById('pip-content');
+    var overlay = document.getElementById('pip-overlay');
+    if (!container || !pipContent || !overlay) return;
+
+    var iframe = pipContent.querySelector('iframe');
+    if (iframe) {
+      container.innerHTML = '';
+      container.appendChild(iframe);
+    }
+
+    overlay.classList.add('hidden');
+    pipContent.innerHTML = '';
+    this._pipActive = false;
+
+    var pipBtn = document.getElementById('stream-pip-btn');
+    if (pipBtn) pipBtn.textContent = 'PiP';
   },
 
   _launchSpotAsDrill: function() {

@@ -62,18 +62,44 @@ GTO.App = {
       });
     }
 
-    // Format toggles in settings
+    // Settings toggle handlers
+    var self = this;
     document.querySelectorAll('#modal-settings .toggle-option').forEach(function(opt) {
       opt.addEventListener('click', function() {
         var group = this.parentElement;
         group.querySelectorAll('.toggle-option').forEach(function(o) { o.classList.remove('active'); });
         this.classList.add('active');
+        var val = this.getAttribute('data-value');
         if (group.id === 'settings-format') {
-          GTO.State.set('settings.format', this.getAttribute('data-value'));
-          GTO.UI.HUD.updateFormat(this.getAttribute('data-value'));
+          GTO.State.set('settings.format', val);
+          GTO.UI.HUD.updateFormat(val);
+        } else if (group.id === 'settings-sound') {
+          GTO.State.set('settings.soundEnabled', val === 'on');
+        } else if (group.id === 'settings-accent') {
+          GTO.State.set('settings.accentColor', val);
+          self._applyTheme();
+        } else if (group.id === 'settings-range-scheme') {
+          GTO.State.set('settings.rangeScheme', val);
+          self._applyTheme();
         }
       });
     });
+
+    // Restore saved settings to UI
+    var savedAccent = settings.accentColor || 'orange';
+    var savedScheme = settings.rangeScheme || 'classic';
+    var savedSound = settings.soundEnabled ? 'on' : 'off';
+    ['settings-accent', 'settings-range-scheme', 'settings-sound'].forEach(function(gid) {
+      var grp = document.getElementById(gid);
+      if (!grp) return;
+      var target = gid === 'settings-accent' ? savedAccent : gid === 'settings-range-scheme' ? savedScheme : savedSound;
+      grp.querySelectorAll('.toggle-option').forEach(function(o) {
+        o.classList.toggle('active', o.getAttribute('data-value') === target);
+      });
+    });
+
+    // Apply theme on load
+    this._applyTheme();
 
     // Reset data button
     var resetBtn = document.getElementById('btn-reset-data');
@@ -87,6 +113,47 @@ GTO.App = {
         }
       });
     }
+  },
+
+  // ── Theme / Personalization ──
+
+  _ACCENT_PRESETS: {
+    orange:  { accent: '#ff8c00', dim: '#cc7000', glow: 'rgba(255, 140, 0, 0.15)' },
+    green:   { accent: '#4af6c3', dim: '#2db88e', glow: 'rgba(74, 246, 195, 0.15)' },
+    blue:    { accent: '#4a9eff', dim: '#2b7cd6', glow: 'rgba(74, 158, 255, 0.15)' },
+    cyan:    { accent: '#00e5ff', dim: '#00b0c4', glow: 'rgba(0, 229, 255, 0.15)' },
+    purple:  { accent: '#b388ff', dim: '#8c5dcc', glow: 'rgba(179, 136, 255, 0.15)' },
+    red:     { accent: '#ff5252', dim: '#cc3333', glow: 'rgba(255, 82, 82, 0.15)' },
+    gold:    { accent: '#ffd700', dim: '#b39700', glow: 'rgba(255, 215, 0, 0.15)' }
+  },
+
+  _RANGE_PRESETS: {
+    classic: { raise: '74, 246, 195',  call: '0, 104, 255',   raiseColor: '#4af6c3', callColor: '#0068ff' },
+    warm:    { raise: '255, 140, 0',   call: '255, 215, 0',   raiseColor: '#ff8c00', callColor: '#ffd700' },
+    cool:    { raise: '0, 229, 255',   call: '179, 136, 255', raiseColor: '#00e5ff', callColor: '#b388ff' },
+    mono:    { raise: '220, 220, 220', call: '120, 120, 120', raiseColor: '#dcdcdc', callColor: '#787878' },
+    redblue: { raise: '255, 82, 82',   call: '74, 158, 255',  raiseColor: '#ff5252', callColor: '#4a9eff' }
+  },
+
+  _applyTheme: function() {
+    var settings = GTO.State.get('settings');
+    var accentKey = settings.accentColor || 'orange';
+    var rangeKey = settings.rangeScheme || 'classic';
+
+    var accent = this._ACCENT_PRESETS[accentKey] || this._ACCENT_PRESETS.orange;
+    var range = this._RANGE_PRESETS[rangeKey] || this._RANGE_PRESETS.classic;
+
+    var root = document.documentElement.style;
+    root.setProperty('--accent', accent.accent);
+    root.setProperty('--accent-dim', accent.dim);
+    root.setProperty('--accent-glow', accent.glow);
+    root.setProperty('--range-raise', range.raise);
+    root.setProperty('--range-call', range.call);
+    root.setProperty('--range-raise-color', range.raiseColor);
+    root.setProperty('--range-call-color', range.callColor);
+
+    // Re-render matrix so inline styles pick up new range colors
+    if (this._updateExploreMatrix) this._updateExploreMatrix();
   },
 
   _setupPreflopDrill: function() {

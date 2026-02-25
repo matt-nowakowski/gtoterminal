@@ -20,13 +20,18 @@
   <div id="nav-bar">
     <div class="logo">GTO<span>TERMINAL</span></div>
     <div class="nav-tabs">
-      <div class="nav-tab active" data-view="explore">EXPLORE<span class="tab-key">1</span></div>
-      <div class="nav-tab" data-view="drill">DRILL<span class="tab-key">2</span></div>
-      <div class="nav-tab" data-view="playthrough">PLAY<span class="tab-key">3</span></div>
-      <div class="nav-tab" data-view="plans">PLANS<span class="tab-key">4</span></div>
-      <div class="nav-tab" data-view="learn">LEARN<span class="tab-key">5</span></div>
-      <div class="nav-tab" data-view="stats">STATS<span class="tab-key">6</span></div>
-      <div class="nav-tab" data-view="stream">STREAM<span class="tab-key">7</span></div>
+      <div class="nav-tabs-main">
+        <div class="nav-tab active" data-view="explore">EXPLORE<span class="tab-key">1</span></div>
+        <div class="nav-tab" data-view="drill">DRILL<span class="tab-key">2</span></div>
+        <div class="nav-tab" data-view="playthrough">PLAY<span class="tab-key">3</span></div>
+        <div class="nav-tab" data-view="plans">PLANS<span class="tab-key">4</span></div>
+        <div class="nav-tab" data-view="stats">STATS<span class="tab-key">5</span></div>
+      </div>
+      <div class="nav-tab-separator"></div>
+      <div class="nav-tabs-secondary">
+        <div class="nav-tab" data-view="learn">LEARN<span class="tab-key">6</span></div>
+        <div class="nav-tab" data-view="stream">STREAM<span class="tab-key">7</span></div>
+      </div>
     </div>
     <div class="nav-right">
       <button class="nav-btn" id="btn-help" title="Help">?</button>
@@ -1838,6 +1843,7 @@
           <div class="stream-controls">
             <input type="text" class="stream-channel-input" id="stream-channel-input" placeholder="Twitch / YouTube channel or paste URL...">
             <button class="stream-ctrl-btn" id="stream-load-btn">LOAD</button>
+            <button class="stream-ctrl-btn" id="stream-pip-btn" title="Mini player (picture-in-picture)">PiP</button>
           </div>
         </div>
       </div>
@@ -1936,6 +1942,30 @@
         <div class="toggle-group" id="settings-sound">
           <div class="toggle-option active" data-value="on">ON</div>
           <div class="toggle-option" data-value="off">OFF</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Accent Color</label>
+        <div class="toggle-group" id="settings-accent">
+          <div class="toggle-option active" data-value="orange" style="color:#ff8c00;">ORANGE</div>
+          <div class="toggle-option" data-value="green" style="color:#4af6c3;">GREEN</div>
+          <div class="toggle-option" data-value="blue" style="color:#4a9eff;">BLUE</div>
+          <div class="toggle-option" data-value="cyan" style="color:#00e5ff;">CYAN</div>
+          <div class="toggle-option" data-value="purple" style="color:#b388ff;">PURPLE</div>
+          <div class="toggle-option" data-value="red" style="color:#ff5252;">RED</div>
+          <div class="toggle-option" data-value="gold" style="color:#ffd700;">GOLD</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Range Colors</label>
+        <div class="toggle-group" id="settings-range-scheme">
+          <div class="toggle-option active" data-value="classic">CLASSIC</div>
+          <div class="toggle-option" data-value="warm">WARM</div>
+          <div class="toggle-option" data-value="cool">COOL</div>
+          <div class="toggle-option" data-value="mono">MONO</div>
+          <div class="toggle-option" data-value="redblue">RED-BLUE</div>
         </div>
       </div>
 
@@ -2087,11 +2117,21 @@
 <script src="js/ui/toast.js"></script>
 <script src="js/ui/modal.js"></script>
 <script src="js/ui/charts.js"></script>
+<script src="js/ui/sounds.js"></script>
 <script src="js/solver/solver-cache.js"></script>
 <script src="js/solver/solver-api.js"></script>
 <script src="js/solver/preflop-solver-cache.js"></script>
 <script src="js/solver/preflop-solver-api.js"></script>
 <script src="js/app.js"></script>
+
+<!-- PiP overlay for floating stream mini-player -->
+<div id="pip-overlay" class="hidden">
+  <div class="pip-header">
+    <span class="pip-title">STREAM</span>
+    <button class="pip-close" id="pip-close-btn">&times;</button>
+  </div>
+  <div class="pip-content" id="pip-content"></div>
+</div>
 
 </body>
 </html>

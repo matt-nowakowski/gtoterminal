@@ -2,10 +2,16 @@ window.GTO = window.GTO || {};
 GTO.UI = GTO.UI || {};
 
 GTO.UI.HandMatrix = {
-  COLORS: {
-    raise: 'rgba(74, 246, 195, 0.5)',
-    call: 'rgba(0, 104, 255, 0.5)',
-    fold: '#1a1a1a'
+  // Read live CSS custom properties so theme changes take effect instantly
+  _colors: function() {
+    var cs = getComputedStyle(document.documentElement);
+    var rr = cs.getPropertyValue('--range-raise').trim() || '74, 246, 195';
+    var rc = cs.getPropertyValue('--range-call').trim() || '0, 104, 255';
+    return {
+      raise: 'rgba(' + rr + ', 0.5)',
+      call: 'rgba(' + rc + ', 0.5)',
+      fold: '#1a1a1a'
+    };
   },
 
   // Update matrix with range data — now renders multi-color gradient cells
@@ -13,7 +19,7 @@ GTO.UI.HandMatrix = {
     try {
       var table = document.getElementById(matrixId);
       if (!table) return;
-      var self = this;
+      var colors = this._colors();
 
       var cells = table.querySelectorAll('td[data-hand]');
       cells.forEach(function(cell) {
@@ -32,13 +38,13 @@ GTO.UI.HandMatrix = {
 
           if (totalAction < 0.05) {
             actionClass = 'action-fold';
-            cell.style.background = self.COLORS.fold;
+            cell.style.background = colors.fold;
           } else if (r >= 0.95 && c < 0.05) {
             actionClass = 'action-raise';
-            cell.style.background = self.COLORS.raise;
+            cell.style.background = colors.raise;
           } else if (c >= 0.95 && r < 0.05) {
             actionClass = 'action-call';
-            cell.style.background = self.COLORS.call;
+            cell.style.background = colors.call;
           } else {
             // Mixed: compute proportional gradient
             var total = r + c + f;
@@ -48,16 +54,16 @@ GTO.UI.HandMatrix = {
             var rcEnd = rPct + cPct;
 
             cell.style.background = 'linear-gradient(to right, ' +
-              self.COLORS.raise + ' 0% ' + rPct.toFixed(1) + '%, ' +
-              self.COLORS.call + ' ' + rPct.toFixed(1) + '% ' + rcEnd.toFixed(1) + '%, ' +
-              self.COLORS.fold + ' ' + rcEnd.toFixed(1) + '% 100%)';
+              colors.raise + ' 0% ' + rPct.toFixed(1) + '%, ' +
+              colors.call + ' ' + rPct.toFixed(1) + '% ' + rcEnd.toFixed(1) + '%, ' +
+              colors.fold + ' ' + rcEnd.toFixed(1) + '% 100%)';
 
             if (r > c * 2) actionClass = 'action-mixed-raise';
             else if (c > r * 2) actionClass = 'action-mixed-call';
             else actionClass = 'action-mixed-even';
           }
         } else {
-          cell.style.background = self.COLORS.fold;
+          cell.style.background = colors.fold;
         }
 
         cell.classList.add(actionClass);

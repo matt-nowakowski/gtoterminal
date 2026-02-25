@@ -626,8 +626,8 @@
 .toggle-option:last-child { border-right: none; }
 
 .toggle-option.active {
-  background: var(--orange-glow);
-  color: var(--orange);
+  background: var(--accent-glow);
+  color: var(--accent);
 }
 
 .toggle-option:hover:not(.active) {

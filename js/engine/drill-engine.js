@@ -163,6 +163,9 @@ GTO.Engine.DrillEngine = {
     if (result.isOptimal) this._session.correct++;
     this._session.totalEvLoss += (result.evLoss || 0);
 
+    // Sound feedback
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play(result.isOptimal ? 'correct' : 'incorrect');
+
     // Track in analytics
     if (GTO.Analytics && GTO.Analytics.Tracker) {
       GTO.Analytics.Tracker.record(decision);
@@ -177,6 +180,7 @@ GTO.Engine.DrillEngine = {
 
   endSession: function() {
     if (!this._session) return;
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('complete');
     this._session.endTime = Date.now();
     this._session.totalDrills = this._session.decisions.length;
     this._session.accuracy = this._session.totalDrills > 0 ? this._session.correct / this._session.totalDrills : 0;

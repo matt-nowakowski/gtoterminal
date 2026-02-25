@@ -45,6 +45,7 @@ GTO.Engine.HandPlaythrough = {
       preflopAction: null // set when preflop action is submitted
     };
 
+    if (GTO.UI.Sounds) GTO.UI.Sounds.play('deal');
     return this._hand;
   },
 
