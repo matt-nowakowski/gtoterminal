@@ -137,25 +137,48 @@ const BENCHMARKS = {
   },
   cash_40bb: {
     rfi: {
-      UTG: { raise: [14, 19, 16.5] },
-      MP:  { raise: [18, 24, 21.0] },
-      CO:  { raise: [26, 34, 30.0] },
-      BTN: { raise: [42, 55, 48.0] },
-      SB:  { raise: [38, 55, 46.0] }
+      UTG: { raise: [12, 16, 14.0] },
+      MP:  { raise: [16.6, 20.6, 18.6] },
+      CO:  { raise: [24.8, 28.8, 26.8] },
+      BTN: { raise: [43, 47, 45.0] },
+      SB:  { raise: [42, 46, 44.0] }
     },
     vs_raise: {
       'UTG_BB':  { defend: [22, 32, 27] },
-      'CO_BB':   { defend: [32, 45, 38] },
-      'BTN_BB':  { defend: [45, 60, 52] },
+      'CO_BB':   { defend: [38, 50, 44] },
+      'BTN_BB':  { defend: [48, 62, 55] },
+    }
+  },
+  cash_25bb: {
+    rfi: {
+      UTG: { raise: [10.9, 14.9, 12.9] },
+      MP:  { raise: [14.5, 18.5, 16.5] },
+      CO:  { raise: [22.7, 26.7, 24.7] },
+      BTN: { raise: [40.1, 44.1, 42.1] },
+      SB:  { raise: [40, 44, 42.0] }
+    },
+    vs_raise: {
+      'UTG_BB':  { defend: [22, 32, 27] },
+      'CO_BB':   { defend: [36, 48, 42] },
+      'BTN_BB':  { defend: [44, 58, 52] },
     }
   },
   cash_20bb: {
     rfi: {
-      UTG: { raise: [10, 16, 13.0] },
-      MP:  { raise: [13, 19, 16.0] },
-      CO:  { raise: [22, 32, 27.0] },
-      BTN: { raise: [38, 52, 44.0] },
-      SB:  { raise: [36, 55, 45.0] }
+      UTG: { raise: [10.7, 14.7, 12.7] },
+      MP:  { raise: [13.6, 17.6, 15.6] },
+      CO:  { raise: [21.8, 25.8, 23.8] },
+      BTN: { raise: [38.2, 42.2, 40.2] },
+      SB:  { raise: [39.7, 43.7, 41.7] }
+    }
+  },
+  cash_15bb: {
+    rfi: {
+      UTG: { raise: [9.8, 13.8, 11.8] },
+      MP:  { raise: [12.4, 16.4, 14.4] },
+      CO:  { raise: [20.5, 24.5, 22.5] },
+      BTN: { raise: [34.6, 38.6, 36.6] },
+      SB:  { raise: [37.6, 41.6, 39.6] }
     }
   },
   mtt_100bb: {
@@ -177,7 +200,7 @@ const BENCHMARKS = {
       UTG: { raise: [11, 16, 13.5] },
       MP:  { raise: [15, 21, 18.0] },
       CO:  { raise: [22, 30, 26.0] },
-      BTN: { raise: [38, 52, 44.0] },
+      BTN: { raise: [38.5, 42.5, 40.5] },
       SB:  { raise: [36, 52, 43.0] }
     }
   },

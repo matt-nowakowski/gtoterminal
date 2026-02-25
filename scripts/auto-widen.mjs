@@ -92,10 +92,12 @@ function handQuality(hand) {
 
 // RFI targets: [format, depth, position, targetPct]
 const RFI_TARGETS = {
-  cash_40bb: { UTG: 16.5, MP: 21, CO: 30, BTN: 48, SB: 46 },
-  cash_20bb: { UTG: 13, MP: 16, CO: 27, BTN: 44, SB: 45 },
+  cash_40bb: { UTG: 14, MP: 18.6, CO: 26.8, BTN: 45, SB: 44 },
+  cash_25bb: { UTG: 12.9, MP: 16.5, CO: 24.7, BTN: 42.1, SB: 42 },
+  cash_20bb: { UTG: 12.7, MP: 15.6, CO: 23.8, BTN: 40.2, SB: 41.7 },
+  cash_15bb: { UTG: 11.8, MP: 14.4, CO: 22.5, BTN: 36.6, SB: 39.6 },
   mtt_100bb: { UTG: 14.5, MP: 19, CO: 27.5, BTN: 43, SB: 42 },
-  mtt_40bb:  { UTG: 13.5, MP: 18, CO: 26, BTN: 44, SB: 43 },
+  mtt_40bb:  { UTG: 13.5, MP: 18, CO: 26, BTN: 40.5, SB: 43 },
   mtt_25bb:  { UTG: 12.5, MP: 16, CO: 24, BTN: 41, SB: 41 },
   mtt_15bb:  { UTG: 11.5, MP: 14, CO: 22, BTN: 36, SB: 39 },
 };
@@ -103,7 +105,8 @@ const RFI_TARGETS = {
 // Defend targets for vs_raise BB spots
 const DEFEND_TARGETS = {
   cash_100bb: { UTG_BB: 33, MP_BB: 42, CO_BB: 44, BTN_BB: 57, UTG_BTN: 23 },
-  cash_40bb: { UTG_BB: 27, CO_BB: 38, BTN_BB: 52 },
+  cash_40bb: { UTG_BB: 27, CO_BB: 44, BTN_BB: 55 },
+  cash_25bb: { UTG_BB: 27, CO_BB: 42, BTN_BB: 52 },
   mtt_100bb: { UTG_BB: 31, CO_BB: 41, BTN_BB: 55 },
 };
 

@@ -242,7 +242,7 @@ GTO.App = {
 
     // Hide AI insight
     var aiInsight = document.getElementById('ai-insight-preflop');
-    if (aiInsight) aiInsight.parentElement.style.display = 'none';
+    if (aiInsight) aiInsight.classList.add('hidden');
     var explainBtn = document.getElementById('btn-explain-preflop');
     if (explainBtn) explainBtn.style.display = 'none';
   },
@@ -268,7 +268,10 @@ GTO.App = {
     var feedbackEmpty = document.getElementById('feedback-empty');
     var feedbackContent = document.getElementById('feedback-content');
     if (feedbackEmpty) feedbackEmpty.classList.add('hidden');
-    if (feedbackContent) feedbackContent.classList.remove('hidden');
+    if (feedbackContent) {
+      feedbackContent.classList.remove('hidden');
+      feedbackContent.style.display = '';
+    }
 
     // Update hand matrix with full range FIRST (most important visual)
     try {
@@ -752,6 +755,12 @@ GTO.App = {
       }
       if (!compVisible) compLine.style.display = 'none';
     }
+
+    // Populate postflop EV stats
+    var bestLabel = (result.bestAction || '').replace('bet_33', 'Bet 1/3').replace('bet_50', 'Bet 1/2').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Bet Pot').replace('allin', 'All-in').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise');
+    GTO.UI.HUD.updateStat('post-ev-yours', result.userAction ? result.userAction.replace('bet_33', 'Bet 1/3').replace('bet_50', 'Bet 1/2').replace('bet_67', 'Bet 2/3').replace('bet_100', 'Bet Pot').replace('allin', 'All-in').replace('check', 'Check').replace('fold', 'Fold').replace('call', 'Call').replace('raise', 'Raise') : '--');
+    GTO.UI.HUD.updateStat('post-ev-optimal', bestLabel || '--');
+    GTO.UI.HUD.updateStat('post-ev-loss', result.evLoss != null ? GTO.Utils.formatEV(result.evLoss) : '--');
 
     GTO.UI.HUD.updateStatusBar(GTO.Engine.DrillEngine.getProgress());
     this._updateDrillProgress();
@@ -1958,6 +1967,20 @@ GTO.App = {
           } else {
             icmEl.classList.add('hidden');
           }
+          // Sync format across all tabs
+          formatGroups.forEach(function(otherFg) {
+            var otherGroup = document.getElementById(otherFg.toggle);
+            var otherIcm = document.getElementById(otherFg.icm);
+            if (!otherGroup) return;
+            otherGroup.querySelectorAll('.toggle-option').forEach(function(o) {
+              o.classList.toggle('active', o.getAttribute('data-value') === val);
+            });
+            if (otherIcm) {
+              otherIcm.classList.toggle('hidden', val !== 'mtt');
+            }
+          });
+          // Update status bar
+          GTO.UI.HUD.updateFormat(val);
         });
       });
     });
@@ -2181,8 +2204,10 @@ GTO.App = {
       var stackBB = pfStackEl ? parseInt(pfStackEl.getAttribute('data-value')) : 10;
       var pfPos = pfPosEl ? pfPosEl.getAttribute('data-value') : 'UTG';
 
-      // Check ICM adjustment for push/fold
-      var icmEnabled = GTO.Engine.ICM && GTO.State.get('icmEnabled') !== false;
+      // Check ICM adjustment for push/fold (only in MTT format)
+      var pfFormatEl = document.querySelector('#explore-format .toggle-option.active');
+      var pfFormat = pfFormatEl ? pfFormatEl.getAttribute('data-value') : 'cash';
+      var icmEnabled = pfFormat === 'mtt' && GTO.Engine.ICM && GTO.State.get('icmEnabled') !== false;
       var bf = icmEnabled ? this._getExploreBubbleFactor() : 1.0;
 
       var rangeData = {};
@@ -2206,7 +2231,7 @@ GTO.App = {
       this._exploreRangeData = rangeData;
       var combos = 0;
       GTO.Data.ALL_HANDS.forEach(function(h) {
-        if (rangeData[h] && rangeData[h].raise > 0) combos += (GTO.Data.COMBOS[h] || 0);
+        if (rangeData[h] && rangeData[h].raise > 0) combos += (GTO.Data.COMBOS[h] || 0) * rangeData[h].raise;
       });
       var comboEl = document.getElementById('explore-combo-count');
       var pctEl = document.getElementById('explore-hand-pct');

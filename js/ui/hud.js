@@ -19,7 +19,12 @@ GTO.UI.HUD = {
   // Update stat rows (position, stack, etc)
   updateStat: function(id, value) {
     var el = document.getElementById(id);
-    if (el) el.textContent = value;
+    if (!el) return;
+    if (typeof value === 'string' && value.indexOf('<') !== -1) {
+      el.innerHTML = value;
+    } else {
+      el.textContent = value;
+    }
   },
 
   // Update the status bar

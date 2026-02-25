@@ -45,35 +45,35 @@ GTO.Data.TournamentCatalog = {
   ],
 
   SCHEDULE: [
-    // ── WSOP 2025 ──
-    { id: 'wsop25_main',        name: 'WSOP 2025 Main Event',          series: 'WSOP',       startDate: '2025-06-29', endDate: '2025-07-16', buyIn: '$10,000',  format: 'NLHE',  stream: 'wsop',       status: 'upcoming', description: 'The Big One — $10K Main Event' },
-    { id: 'wsop25_colossus',    name: 'WSOP Colossus',                 series: 'WSOP',       startDate: '2025-06-05', endDate: '2025-06-08', buyIn: '$400',     format: 'NLHE',  stream: 'wsop',       status: 'upcoming', description: 'Massive field $400 NLHE event' },
-    { id: 'wsop25_monster',     name: 'WSOP Monster Stack',            series: 'WSOP',       startDate: '2025-06-12', endDate: '2025-06-15', buyIn: '$600',     format: 'NLHE',  stream: 'wsop',       status: 'upcoming', description: 'Deep-stacked $600 event' },
-    { id: 'wsop25_plossus',     name: 'WSOP PLOssus',                  series: 'WSOP',       startDate: '2025-06-19', endDate: '2025-06-22', buyIn: '$600',     format: 'PLO',   stream: 'wsop',       status: 'upcoming', description: 'Biggest PLO tournament of the year' },
-    { id: 'wsop25_seniors',     name: 'WSOP Seniors Championship',     series: 'WSOP',       startDate: '2025-06-16', endDate: '2025-06-19', buyIn: '$1,000',   format: 'NLHE',  stream: 'wsop',       status: 'upcoming', description: '50+ seniors bracelet event' },
+    // ── WSOP 2026 ──
+    { id: 'wsop25_main',        name: 'WSOP 2026 Main Event',          series: 'WSOP',       startDate: '2026-06-29', endDate: '2026-07-16', buyIn: '$10,000',  format: 'NLHE',  stream: 'wsop',       status: 'upcoming', description: 'The Big One — $10K Main Event' },
+    { id: 'wsop25_colossus',    name: 'WSOP Colossus',                 series: 'WSOP',       startDate: '2026-06-05', endDate: '2026-06-08', buyIn: '$400',     format: 'NLHE',  stream: 'wsop',       status: 'upcoming', description: 'Massive field $400 NLHE event' },
+    { id: 'wsop25_monster',     name: 'WSOP Monster Stack',            series: 'WSOP',       startDate: '2026-06-12', endDate: '2026-06-15', buyIn: '$600',     format: 'NLHE',  stream: 'wsop',       status: 'upcoming', description: 'Deep-stacked $600 event' },
+    { id: 'wsop25_plossus',     name: 'WSOP PLOssus',                  series: 'WSOP',       startDate: '2026-06-19', endDate: '2026-06-22', buyIn: '$600',     format: 'PLO',   stream: 'wsop',       status: 'upcoming', description: 'Biggest PLO tournament of the year' },
+    { id: 'wsop25_seniors',     name: 'WSOP Seniors Championship',     series: 'WSOP',       startDate: '2026-06-16', endDate: '2026-06-19', buyIn: '$1,000',   format: 'NLHE',  stream: 'wsop',       status: 'upcoming', description: '50+ seniors bracelet event' },
 
-    // ── EPT 2025 ──
-    { id: 'ept25_monte',        name: 'EPT Monte Carlo Main',          series: 'EPT',        startDate: '2025-04-22', endDate: '2025-05-03', buyIn: '\u20AC5,300', format: 'NLHE', stream: 'pokerstars', status: 'upcoming', description: 'EPT Monte Carlo Main Event' },
-    { id: 'ept25_barcelona',    name: 'EPT Barcelona Main',            series: 'EPT',        startDate: '2025-08-18', endDate: '2025-08-30', buyIn: '\u20AC5,300', format: 'NLHE', stream: 'pokerstars', status: 'upcoming', description: 'Biggest EPT stop of the year' },
-    { id: 'ept25_prague',       name: 'EPT Prague Main',               series: 'EPT',        startDate: '2025-12-08', endDate: '2025-12-19', buyIn: '\u20AC5,300', format: 'NLHE', stream: 'pokerstars', status: 'upcoming', description: 'Season-ending EPT Prague' },
+    // ── EPT 2026 ──
+    { id: 'ept25_monte',        name: 'EPT Monte Carlo Main',          series: 'EPT',        startDate: '2026-04-22', endDate: '2026-05-03', buyIn: '\u20AC5,300', format: 'NLHE', stream: 'pokerstars', status: 'upcoming', description: 'EPT Monte Carlo Main Event' },
+    { id: 'ept25_barcelona',    name: 'EPT Barcelona Main',            series: 'EPT',        startDate: '2026-08-18', endDate: '2026-08-30', buyIn: '\u20AC5,300', format: 'NLHE', stream: 'pokerstars', status: 'upcoming', description: 'Biggest EPT stop of the year' },
+    { id: 'ept25_prague',       name: 'EPT Prague Main',               series: 'EPT',        startDate: '2026-12-08', endDate: '2026-12-19', buyIn: '\u20AC5,300', format: 'NLHE', stream: 'pokerstars', status: 'upcoming', description: 'Season-ending EPT Prague' },
 
-    // ── WPT 2025 ──
-    { id: 'wpt25_woc',          name: 'WPT World Championship',        series: 'WPT',        startDate: '2025-04-12', endDate: '2025-04-17', buyIn: '$10,400',  format: 'NLHE',  stream: 'wpt',        status: 'upcoming', description: 'WPT season-ending championship' },
-    { id: 'wpt25_venetian',     name: 'WPT Venetian',                  series: 'WPT',        startDate: '2025-07-07', endDate: '2025-07-12', buyIn: '$5,000',   format: 'NLHE',  stream: 'wpt',        status: 'upcoming', description: 'WPT at the Venetian Las Vegas' },
+    // ── WPT 2026 ──
+    { id: 'wpt25_woc',          name: 'WPT World Championship',        series: 'WPT',        startDate: '2026-04-12', endDate: '2026-04-17', buyIn: '$10,400',  format: 'NLHE',  stream: 'wpt',        status: 'upcoming', description: 'WPT season-ending championship' },
+    { id: 'wpt25_venetian',     name: 'WPT Venetian',                  series: 'WPT',        startDate: '2026-07-07', endDate: '2026-07-12', buyIn: '$5,000',   format: 'NLHE',  stream: 'wpt',        status: 'upcoming', description: 'WPT at the Venetian Las Vegas' },
 
     // ── Online Series ──
-    { id: 'wcoop25',            name: 'WCOOP 2025',                    series: 'WCOOP',      startDate: '2025-09-01', endDate: '2025-09-22', buyIn: 'Various',  format: 'Mixed', stream: 'pokerstars', status: 'upcoming', description: 'World Championship of Online Poker' },
-    { id: 'scoop25',            name: 'SCOOP 2025',                    series: 'SCOOP',      startDate: '2025-05-04', endDate: '2025-05-25', buyIn: 'Various',  format: 'Mixed', stream: 'pokerstars', status: 'upcoming', description: 'Spring Championship of Online Poker' },
-    { id: 'gg_wsop25',          name: 'WSOP Online 2025',              series: 'GGPoker',    startDate: '2025-06-01', endDate: '2025-07-31', buyIn: 'Various',  format: 'Mixed', stream: 'ggpoker',    status: 'upcoming', description: 'WSOP Online bracelet events on GGPoker' },
-    { id: 'gg_supermil',        name: 'Super MILLION$ Week',           series: 'GGPoker',    startDate: '2025-03-10', endDate: '2025-03-16', buyIn: '$10,300',  format: 'NLHE',  stream: 'ggpoker',    status: 'upcoming', description: 'High-roller Super MILLION$ series' },
+    { id: 'wcoop25',            name: 'WCOOP 2026',                    series: 'WCOOP',      startDate: '2026-09-01', endDate: '2026-09-22', buyIn: 'Various',  format: 'Mixed', stream: 'pokerstars', status: 'upcoming', description: 'World Championship of Online Poker' },
+    { id: 'scoop25',            name: 'SCOOP 2026',                    series: 'SCOOP',      startDate: '2026-05-04', endDate: '2026-05-25', buyIn: 'Various',  format: 'Mixed', stream: 'pokerstars', status: 'upcoming', description: 'Spring Championship of Online Poker' },
+    { id: 'gg_wsop25',          name: 'WSOP Online 2026',              series: 'GGPoker',    startDate: '2026-06-01', endDate: '2026-07-31', buyIn: 'Various',  format: 'Mixed', stream: 'ggpoker',    status: 'upcoming', description: 'WSOP Online bracelet events on GGPoker' },
+    { id: 'gg_supermil',        name: 'Super MILLION$ Week',           series: 'GGPoker',    startDate: '2026-03-10', endDate: '2026-03-16', buyIn: '$10,300',  format: 'NLHE',  stream: 'ggpoker',    status: 'upcoming', description: 'High-roller Super MILLION$ series' },
 
     // ── High Roller ──
-    { id: 'shrb25',             name: 'Super High Roller Bowl',        series: 'PokerGO',    startDate: '2025-05-28', endDate: '2025-06-01', buyIn: '$300,000', format: 'NLHE',  stream: 'pokergo',    status: 'upcoming', description: '$300K Super High Roller Bowl' },
-    { id: 'pgt25_uspo',        name: 'US Poker Open',                  series: 'PokerGO',    startDate: '2025-03-13', endDate: '2025-03-25', buyIn: '$10,000',  format: 'Mixed', stream: 'pokergo',    status: 'upcoming', description: 'US Poker Open — mixed game series' },
+    { id: 'shrb25',             name: 'Super High Roller Bowl',        series: 'PokerGO',    startDate: '2026-05-28', endDate: '2026-06-01', buyIn: '$300,000', format: 'NLHE',  stream: 'pokergo',    status: 'upcoming', description: '$300K Super High Roller Bowl' },
+    { id: 'pgt25_uspo',        name: 'US Poker Open',                  series: 'PokerGO',    startDate: '2026-03-13', endDate: '2026-03-25', buyIn: '$10,000',  format: 'Mixed', stream: 'pokergo',    status: 'upcoming', description: 'US Poker Open — mixed game series' },
 
     // ── Cash Game Events ──
-    { id: 'hustler_ongoing',    name: 'Hustler Casino Live (Weekly)',   series: 'HCL',        startDate: '2025-01-01', endDate: '2025-12-31', buyIn: 'N/A',      format: 'Cash',  stream: 'hustler',    status: 'live',     description: 'Weekly high-stakes cash games' },
-    { id: 'lodge_ongoing',      name: 'Poker at the Lodge (Thu-Sun)',   series: 'Lodge',      startDate: '2025-01-01', endDate: '2025-12-31', buyIn: 'N/A',      format: 'Cash',  stream: 'lodge_yt',   status: 'live',     description: 'Weekly Lodge cash games — Thu to Sun' }
+    { id: 'hustler_ongoing',    name: 'Hustler Casino Live (Weekly)',   series: 'HCL',        startDate: '2026-01-01', endDate: '2026-12-31', buyIn: 'N/A',      format: 'Cash',  stream: 'hustler',    status: 'live',     description: 'Weekly high-stakes cash games' },
+    { id: 'lodge_ongoing',      name: 'Poker at the Lodge (Thu-Sun)',   series: 'Lodge',      startDate: '2026-01-01', endDate: '2026-12-31', buyIn: 'N/A',      format: 'Cash',  stream: 'lodge_yt',   status: 'live',     description: 'Weekly Lodge cash games — Thu to Sun' }
   ],
 
   // ── Helper Methods ──
